@@ -11,53 +11,13 @@
  *   - hysteresis band (0.05) prevents oscillation near thresholds
  */
 
-// --- Default reading configs ---
-// These are the taste decisions that define what body states Song Space responds to.
-// Names are musical (flowing, agitated) not psychological (anger, fear).
+import { DEFAULT_SCORE } from './score.js';
 
-export const DEFAULT_READINGS = [
-  {
-    id: 'flowing',
-    mix: { coherence: 0.4, velocity: 0.3, symmetry: 0.3 },
-    gate: { velocity: { above: 0.15 }, jerkiness: { below: 0.5 } },
-  },
-  {
-    id: 'agitated',
-    mix: { jerkiness: 0.45, velocity: 0.25 },
-    gate: { jerkiness: { above: 0.3 } },
-    // coherence inverted inline in mix would require preprocessing,
-    // so we handle it in the mix step with a special "1-quality" convention
-    _invertInMix: { coherence: 0.3 },
-  },
-  {
-    id: 'stillness',
-    mix: { contraction: 0.4, verticality: 0.3 },
-    gate: { velocity: { below: 0.12 } },
-    // stillness value is partly "how still" — invert velocity in mix
-    _invertInMix: { velocity: 0.3 },
-  },
-  {
-    id: 'reaching',
-    mix: { wristSpread: 0.4, velocity: 0.2 },
-    gate: { velocity: { above: 0.1 } },
-    _invertInMix: { contraction: 0.4 },
-  },
-];
+/** @deprecated Import from score.js instead. Kept for backwards compatibility. */
+export const DEFAULT_READINGS = DEFAULT_SCORE.readings.solo;
 
-// Relational readings — only fire when two bodies are present.
-// Fed with { synchrony, contrast, aggregate_energy } from computeRelational().
-export const RELATIONAL_READINGS = [
-  {
-    id: 'unison',
-    mix: { synchrony: 0.6, aggregate_energy: 0.4 },
-    gate: { synchrony: { above: 0.55 } },
-  },
-  {
-    id: 'opposition',
-    mix: { contrast: 0.6, aggregate_energy: 0.4 },
-    gate: { contrast: { above: 0.4 } },
-  },
-];
+/** @deprecated Import from score.js instead. Kept for backwards compatibility. */
+export const RELATIONAL_READINGS = DEFAULT_SCORE.readings.relational;
 
 const HYSTERESIS_BAND = 0.05;
 const LERP_RATE = 0.08;
