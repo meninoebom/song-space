@@ -119,7 +119,27 @@ export const DEFAULT_SCORE = {
   },
 
   // --- Interaction designer layer: edge-triggered moments ---
-  // Populated in issue #5. Empty array = no triggers (continuous mapping only).
 
-  triggers: [],
+  triggers: [
+    {
+      id: 'drums-drop',
+      on: 'stillness',
+      edge: 'enter',
+      after: 2,
+      action: { mute: ['groove'], rampTime: 0.3 },
+    },
+    {
+      id: 'strip-down',
+      on: 'stillness',
+      edge: 'enter',
+      after: 5,
+      action: { solo: ['texture'], rampTime: 0.5 },
+    },
+    {
+      id: 'energy-slam',
+      on: 'stillness',
+      edge: 'exit',
+      action: { restore: true, rampTime: 0.05 },
+    },
+  ],
 };
