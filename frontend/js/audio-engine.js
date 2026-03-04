@@ -247,6 +247,7 @@ export class AudioEngine {
   triggerOneshot(category, volumeDb = -6) {
     const entries = this.players[category];
     if (!entries || entries.length === 0) return;
+    if (this._triggerMuted[category]) return;
     const { player } = entries[Math.floor(Math.random() * entries.length)];
     if (!player.loaded) return;
     try {
@@ -264,6 +265,7 @@ export class AudioEngine {
     const filter = this.filters[category];
     if (!filter) return;
     try {
+      filter.frequency.cancelScheduledValues(Tone.now());
       filter.frequency.rampTo(fromFreq, 0);
       filter.frequency.rampTo(toFreq, duration);
     } catch (e) { console.warn(`Filter sweep failed (${category}):`, e); }
