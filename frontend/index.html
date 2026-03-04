@@ -12,12 +12,10 @@
     <div id="status">Select a song to begin</div>
   </header>
 
-  <div id="controls">
-    <button id="play-btn" disabled>Play</button>
+  <!-- Developer controls (hidden by default, shown with ?debug=1) -->
+  <div id="controls" style="display:none">
+    <button id="play-btn">Play</button>
     <select id="mode-select">
-      <option value="manual">Manual</option>
-      <option value="webcam">Webcam</option>
-      <option value="blend">Blend</option>
       <option value="arc">Arc</option>
     </select>
   </div>
@@ -33,10 +31,10 @@
   <!-- Phase indicator for arc mode -->
   <div id="phase-indicator" style="display:none"></div>
 
-  <!-- Skeleton overlay for body tracking verification -->
+  <!-- Skeleton overlay (debug only) -->
   <canvas id="skeleton-canvas" style="display:none"></canvas>
 
-  <!-- Debug overlay for movement qualities + readings -->
+  <!-- Debug overlay (debug only) -->
   <pre id="debug-panel" style="display:none"></pre>
 
   <script src="https://unpkg.com/tone@14.7.77/build/Tone.js"></script>
