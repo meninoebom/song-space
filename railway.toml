@@ -1,0 +1,7 @@
+[build]
+builder = "nixpacks"
+
+[deploy]
+startCommand = "cd backend && python start.py"
+healthcheckPath = "/health"
+healthcheckTimeout = 300
