@@ -1,5 +1,5 @@
 # Active Plan: Inhabitable Songs
-Last updated: 2026-03-04 (issues #1-6 complete)
+Last updated: 2026-03-04 (ALL MVP ISSUES COMPLETE #1-7)
 
 ## Problem Statement
 Song Space works but doesn't teach visitors what it responds to — new users see a webcam and hear music but don't discover the cause-and-effect relationship between their body and the song.
@@ -228,7 +228,7 @@ TriggerEngine is the only genuinely new module. ✓
 4. **#4 — AudioEngine additions** — ✅ PR #9. muteCategory/restoreCategory/isTriggerMuted added.
 5. **#5 — F3: TriggerEngine** — ✅ PR #10. 24 tests passing. Declarative trigger evaluation.
 6. **#6 — F3: Wire + tune triggers** — ✅ PR #11. TriggerEngine wired into detection loop, applyTriggerActions helper (15 tests). Tuning deferred to manual testing.
-7. **#7 — F1: Zero-config onboarding** — simplify app.js, remove modes (depends on all above)
+7. **#7 — F1: Zero-config onboarding** — ✅ PR #12. app.js 479→178 lines. Extracted webcam.js, skeleton.js, debug.js. Default flow: pick song → move to begin.
 
 ### What to spike first
 If the trigger *feel* is uncertain, spike F3 with one hardcoded trigger before building the full declarative system. Validate the timing feels musical, then generalize.
