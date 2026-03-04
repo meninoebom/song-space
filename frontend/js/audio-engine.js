@@ -22,6 +22,7 @@ export class AudioEngine {
     this.masterFilter = null;
     this.oneshotCooldown = 0;
     this.categoryVolumes = {};
+    this._triggerMuted = {};   // category → boolean (edge trigger mute state)
     this.onLoadProgress = null; // callback(loaded, total)
   }
 
@@ -151,11 +152,33 @@ export class AudioEngine {
     }
   }
 
-  /** Set volume for a category in dB. Used by manual grid controls. */
+  /** Set volume for a category in dB. No-op if category is trigger-muted. */
   setCategoryVolume(category, db) {
     if (!this.gains[category]) return;
+    if (this._triggerMuted[category]) return; // trigger mute takes priority
     this.gains[category].gain.rampTo(Tone.dbToGain(db), 0.3);
     this.categoryVolumes[category] = db;
+  }
+
+  /** Mute a category via edge trigger. Takes priority over setCategoryVolume. */
+  muteCategory(category, rampTime = 0.3) {
+    if (!this.gains[category]) return;
+    this._triggerMuted[category] = true;
+    this.gains[category].gain.rampTo(Tone.dbToGain(-60), rampTime);
+  }
+
+  /** Release trigger-mute, restoring mapping-driven volume control. */
+  restoreCategory(category, rampTime = 0.05) {
+    if (!this.gains[category]) return;
+    this._triggerMuted[category] = false;
+    // Snap back to last mapping-driven volume (sharp restore for "slam" feel)
+    const lastDb = this.categoryVolumes[category] ?? -12;
+    this.gains[category].gain.rampTo(Tone.dbToGain(lastDb), rampTime);
+  }
+
+  /** Check if a category is currently muted by an edge trigger. */
+  isTriggerMuted(category) {
+    return !!this._triggerMuted[category];
   }
 
   /** Mute/unmute a specific track by filename. */
@@ -250,5 +273,6 @@ export class AudioEngine {
     if (this.masterFilter) { try { this.masterFilter.dispose(); } catch (e) { /* ignore */ } }
     this.players = {}; this.gains = {}; this.filters = {}; this.activeIndex = {};
     this.loaded = false; this.metadata = null; this.categoryVolumes = {};
+    this._triggerMuted = {};
   }
 }

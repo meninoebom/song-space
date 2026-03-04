@@ -7,10 +7,11 @@ import { AudioEngine } from './audio-engine.js';
 import { SongPicker } from './song-picker.js';
 import { LoopGrid } from './loop-grid.js';
 import { MovementDetector, computeRelational } from './movement.js';
-import { ReadingsEngine, RELATIONAL_READINGS } from './readings.js';
+import { ReadingsEngine } from './readings.js';
 import { applyMapping } from './mapping.js';
 import { ArcEngine } from './arc.js';
 import { CATEGORIES } from './constants.js';
+import { DEFAULT_SCORE } from './score.js';
 
 const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
   ? window.location.origin
@@ -22,8 +23,8 @@ const grid = new LoopGrid(document.getElementById('loop-grid'));
 
 // Two detectors + readings engines (always allocated, used when bodies present)
 const detectors = [new MovementDetector(), new MovementDetector()];
-const readingsEngines = [new ReadingsEngine(), new ReadingsEngine()];
-const relationalReadings = new ReadingsEngine(RELATIONAL_READINGS);
+const readingsEngines = [new ReadingsEngine(DEFAULT_SCORE.readings.solo), new ReadingsEngine(DEFAULT_SCORE.readings.solo)];
+const relationalReadings = new ReadingsEngine(DEFAULT_SCORE.readings.relational);
 
 // State
 const status = document.getElementById('status');
@@ -107,7 +108,7 @@ playBtn.addEventListener('click', async () => {
         engine.setCategoryVolume(cat, -8);
       }
     } else if (mode === 'arc') {
-      arc = new ArcEngine();
+      arc = new ArcEngine(DEFAULT_SCORE.arc);
       lastFrameTime = null;
       arc.onPhaseChange = handlePhaseChange;
       arc.onComplete = handleArcComplete;
@@ -257,7 +258,7 @@ function detectLoop() {
 
     // Apply to audio
     if (playing && (mode === 'webcam' || mode === 'blend')) {
-      applyMapping(finalReadings, engine);
+      applyMapping(finalReadings, engine, null, DEFAULT_SCORE.mappings);
     } else if (playing && mode === 'arc' && arc) {
       // Feed arc engine
       const now2 = performance.now() / 1000;
@@ -270,7 +271,7 @@ function detectLoop() {
 
       const phase = arc.getCurrentPhase();
       if (phase) {
-        applyMapping(finalReadings, engine, phase.categories);
+        applyMapping(finalReadings, engine, phase.categories, DEFAULT_SCORE.mappings);
         updatePhaseIndicator(phase);
       }
     }

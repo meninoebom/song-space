@@ -11,13 +11,6 @@
  *   - hysteresis band (0.05) prevents oscillation near thresholds
  */
 
-import { DEFAULT_SCORE } from './score.js';
-
-/** @deprecated Import from score.js instead. Kept for backwards compatibility. */
-export const DEFAULT_READINGS = DEFAULT_SCORE.readings.solo;
-
-/** @deprecated Import from score.js instead. Kept for backwards compatibility. */
-export const RELATIONAL_READINGS = DEFAULT_SCORE.readings.relational;
 
 const HYSTERESIS_BAND = 0.05;
 const LERP_RATE = 0.08;

@@ -5,13 +5,8 @@
  * are available and how long it lasts. Movement engagement stretches/compresses
  * phase durations. The AWAIT phase waits for movement before starting.
  *
- * The arc is config, not code — swap DEFAULT_ARC to change the entire experience.
+ * The arc is config, not code — pass a different arc config to change the journey.
  */
-
-import { DEFAULT_SCORE } from './score.js';
-
-/** @deprecated Import from score.js instead. Kept for backwards compatibility. */
-export const DEFAULT_ARC = DEFAULT_SCORE.arc;
 
 const ENGAGEMENT_WINDOW = 300; // frames (~10s at 30fps)
 const MOVEMENT_TRIGGER_THRESHOLD = 0.15;
@@ -19,7 +14,8 @@ const MOVEMENT_TRIGGER_SUSTAIN = 1.0; // seconds above threshold to trigger
 const EARLY_BREAKDOWN_STILLNESS = 5.0; // seconds of near-zero velocity in PEAK
 
 export class ArcEngine {
-  constructor(config = DEFAULT_ARC) {
+  /** @param {{ phases: Array, sectionMap: Object }} config — arc config from score */
+  constructor(config) {
     this.config = config;
     this.phaseIndex = 0;
     this.phaseElapsed = 0;

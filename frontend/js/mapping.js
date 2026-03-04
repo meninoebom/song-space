@@ -2,16 +2,8 @@
  * Mapping layer — connects readings to audio engine actions.
  * This is the taste layer: what body states do to the music.
  *
- * Uses Ralf-compatible action naming (set/* for continuous, trigger/* for discrete).
- * When Song Space becomes a Ralf translator, this mapping moves into a Scene JSON.
+ * Pure function: receives mapping table from score config, owns no data.
  */
-
-import { DEFAULT_SCORE } from './score.js';
-
-// Volume targets and baseline from score config.
-// Issue #2 will refactor applyMapping to accept these as parameters.
-const VOLUME_MAP = DEFAULT_SCORE.mappings.volumeMap;
-const QUIET_VOLUMES = DEFAULT_SCORE.mappings.quietVolumes;
 
 import { CATEGORIES } from './constants.js';
 
@@ -22,12 +14,15 @@ import { CATEGORIES } from './constants.js';
  * @param {Array} readings — [{ id, value, active }, ...]
  * @param {AudioEngine} engine
  * @param {Array|null} allowedCategories — if set, only these categories get volume; others muted
+ * @param {{ volumeMap: Object, quietVolumes: Object }} mappings — from score config
  */
-export function applyMapping(readings, engine, allowedCategories = null) {
-  if (!engine.loaded) return;
+export function applyMapping(readings, engine, allowedCategories = null, mappings) {
+  if (!engine.loaded || !mappings) return;
+
+  const { volumeMap, quietVolumes } = mappings;
 
   // Start with quiet baseline
-  const targetVol = { ...QUIET_VOLUMES };
+  const targetVol = { ...quietVolumes };
 
   // Accumulate weighted volume contributions from active readings
   let totalWeight = 0;
@@ -36,7 +31,7 @@ export function applyMapping(readings, engine, allowedCategories = null) {
 
   for (const reading of readings) {
     if (!reading.active || reading.value < 0.05) continue;
-    const map = VOLUME_MAP[reading.id];
+    const map = volumeMap[reading.id];
     if (!map) continue;
 
     const w = reading.value;
@@ -46,7 +41,7 @@ export function applyMapping(readings, engine, allowedCategories = null) {
       if (map[cat] !== undefined) {
         contributions[cat] += map[cat] * w;
       } else {
-        contributions[cat] += QUIET_VOLUMES[cat] * w;
+        contributions[cat] += quietVolumes[cat] * w;
       }
     }
   }
