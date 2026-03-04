@@ -1,5 +1,27 @@
 # Raw Learnings
 
+## 2026-03-04 - Issue #7: Zero-config onboarding
+
+### Module extraction strategy for large orchestrator files
+**Problem:** app.js was 479 lines mixing orchestration, webcam setup, skeleton drawing, debug overlay, and mode switching. Target: ≤150 lines.
+**Solution:** Extract by responsibility: webcam.js (setup + detect API), skeleton.js (canvas drawing), debug.js (text overlay + bar helper). Each module owns its own DOM interaction. app.js becomes pure wiring — import, instantiate, connect callbacks. Landed at 178 lines (14 are imports).
+**Code ref:** `frontend/js/app.js`, `frontend/js/webcam.js`, `frontend/js/skeleton.js`, `frontend/js/debug.js`
+
+### webcam.js API design: detect() returns null when not ready
+**Problem:** Detection loop needs to handle "webcam not ready" and "no results" differently from "results with 0 bodies."
+**Solution:** `webcam.detect()` returns `null` if video not ready or webcam not running, returns the MediaPipe results object otherwise. Caller checks `if (results)` then `results.landmarks.length` for body count. Clean separation: webcam module owns readiness, app owns interpretation.
+**Code ref:** `frontend/js/webcam.js:58-62`
+
+### Rebase conflicts on complete file rewrites
+**Problem:** Rebasing a complete rewrite of app.js onto a branch that modified app.js (PR #11) creates conflicts that git can't auto-merge.
+**Solution:** When you've rewritten a file entirely and the upstream change is already incorporated in your rewrite, use `git checkout --ours` (or just re-apply your version). The rewrite already accounts for upstream changes since you read the merged state before rewriting.
+
+### End of Issue Retrospective
+**What went well:** Clean extraction pattern. Each module has a single responsibility. Debug mode via URL param is elegant — no code paths removed, just hidden.
+**What took longer than expected:** Rebase conflict resolution after merging PR #11 mid-flight.
+**Would do differently:** Merge all blocking PRs before starting a dependent issue's branch.
+
+
 ## 2026-03-04 - Issue #6: Wire TriggerEngine
 
 ### Extract action application as testable helper

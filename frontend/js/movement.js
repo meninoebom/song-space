@@ -111,6 +111,7 @@ export class MovementDetector {
       coherence:     new AdaptiveRange(0, 0.01, 0.999),
       ankleSpread:   new AdaptiveRange(0, 0.2),
       wristSpread:   new AdaptiveRange(0, 0.3),
+      armsRaised:    new AdaptiveRange(-0.1, 0.3),
     };
 
     // History buffers
@@ -122,6 +123,12 @@ export class MovementDetector {
     this.leftVelHistory = [];
     this.rightVelHistory = [];
     this.velDiffHistory = [];
+
+    // Impulse state for clap/jump
+    this._clapValue = 0;
+    this._jumpValue = 0;
+    this._wristDistHistory = [];
+    this._hipYHistory = [];
   }
 
   /** Smooth raw MediaPipe landmarks through One-Euro filters. */
@@ -146,6 +153,7 @@ export class MovementDetector {
     const out = {
       velocity: 0, jerkiness: 0, contraction: 0.5, verticality: 0.5,
       symmetry: 0.5, coherence: 0.5, ankleSpread: 0.5, wristSpread: 0.5,
+      armsRaised: 0, clap: 0, jump: 0,
     };
 
     // === SHAPE PRIMITIVES ===
@@ -191,6 +199,49 @@ export class MovementDetector {
     if (landmarks[15].visibility > 0.3 && landmarks[16].visibility > 0.3) {
       out.wristSpread = this.ranges.wristSpread.normalize(Math.abs(landmarks[15].x - landmarks[16].x));
     }
+
+    // Arms raised: how much wrists are above shoulders (Y is 0=top, 1=bottom)
+    const lShoulder = landmarks[11], rShoulder = landmarks[12];
+    const lWrist = landmarks[15], rWrist = landmarks[16];
+    if (lShoulder.visibility > 0.3 && rShoulder.visibility > 0.3 &&
+        lWrist.visibility > 0.3 && rWrist.visibility > 0.3) {
+      const avgShoulderY = (lShoulder.y + rShoulder.y) / 2;
+      const avgWristY = (lWrist.y + rWrist.y) / 2;
+      out.armsRaised = this.ranges.armsRaised.normalize(avgShoulderY - avgWristY);
+    }
+
+    // Clap detection: wrist distance drops below threshold while velocity is high
+    if (landmarks[15].visibility > 0.3 && landmarks[16].visibility > 0.3) {
+      const wristDist = dist(landmarks[15], landmarks[16]);
+      this._wristDistHistory.push(wristDist);
+      while (this._wristDistHistory.length > 10) this._wristDistHistory.shift();
+
+      const wasSpread = this._wristDistHistory.length >= 4 &&
+        this._wristDistHistory[this._wristDistHistory.length - 4] > 0.15;
+      const hasVelocity = this.velocityHistory.length > 0 &&
+        mean(this.velocityHistory.slice(-5)) > 0.001;
+      if (wristDist < 0.08 && wasSpread && hasVelocity && this._clapValue < 0.3) {
+        this._clapValue = 1.0;
+      }
+    }
+    this._clapValue *= 0.85;
+    out.clap = this._clapValue;
+
+    // Jump detection: hip Y rises above rolling baseline
+    if (lHip.visibility > 0.3 && rHip.visibility > 0.3) {
+      const hipMidY = (lHip.y + rHip.y) / 2;
+
+      if (this._hipYHistory.length >= 10) {
+        const baseline = mean(this._hipYHistory);
+        if (baseline - hipMidY > 0.06 && this._jumpValue < 0.3) {
+          this._jumpValue = 1.0;
+        }
+      }
+      this._hipYHistory.push(hipMidY);
+      while (this._hipYHistory.length > 60) this._hipYHistory.shift();
+    }
+    this._jumpValue *= 0.85;
+    out.jump = this._jumpValue;
 
     // === KINEMATIC PRIMITIVES ===
 
@@ -266,7 +317,7 @@ export class MovementDetector {
 // --- Relational qualities (cross-body) ---
 // Ported from Ralf's relational.ts. Pure function, no state.
 
-const QUALITY_KEYS = ['velocity', 'jerkiness', 'symmetry', 'coherence', 'contraction', 'verticality', 'ankleSpread', 'wristSpread'];
+const QUALITY_KEYS = ['velocity', 'jerkiness', 'symmetry', 'coherence', 'contraction', 'verticality', 'ankleSpread', 'wristSpread', 'armsRaised'];
 
 /**
  * Compute relational qualities between two bodies.
