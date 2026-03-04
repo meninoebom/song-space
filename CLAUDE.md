@@ -41,9 +41,27 @@ Vanilla JS app served by the API at `/app`. No build step.
 | `frontend/js/movement.js` | MediaPipe landmarks → 8 body qualities (velocity, jerkiness, coherence, etc.) + relational metrics |
 | `frontend/js/readings.js` | ReadingConfig: weighted quality combos with hysteresis gating |
 | `frontend/js/mapping.js` | Readings → audio category volume targets (the taste layer) |
+| `frontend/js/score.js` | DEFAULT_SCORE — the complete experience config (arc, readings, mappings, triggers) |
+| `frontend/js/trigger-engine.js` | Declarative edge trigger evaluation — rising/falling edges, sustain timers, arc-aware |
+| `frontend/js/trigger-actions.js` | Translates trigger actions into AudioEngine calls (mute/solo/restore) |
 | `frontend/js/loop-grid.js` | Developer loop grid UI |
 | `frontend/js/song-picker.js` | Song catalog cards |
 | `frontend/js/arc.js` | Phase-driven remixing with engagement tracking |
+
+### Score — the Composer Framework
+
+A **score** is the complete definition of an interactive musical experience. It bundles everything the system needs to run a Song Space session. See `docs/solutions/composer-framework.md` for the full concept.
+
+**Three layers, three roles:**
+- **Composer** provides loops (organized by category × section) + an arc (temporal journey)
+- **Interaction designer** provides readings, mappings (continuous), and triggers (edge-triggered moments)
+- **Dancer** provides movement
+
+**The score config** bundles: arc + readings + mappings + triggers. Defined as `DEFAULT_SCORE` in `frontend/js/score.js`. Future: JSON that composers and interaction designers can author independently.
+
+**Categories** are the 7 functional roles a loop can fill: texture, harmonic_bed, bass, foundation, groove, hook, accent. **Sections** are the 5 emotional phases: intro, verse, chorus, bridge, outro. The **arc** defines which categories are available in each phase and for how long.
+
+This framework is designed to transfer into Ralf's scene system. The arc is the new concept Ralf doesn't have yet — temporal composition on top of reactive interaction.
 
 ### Song Spaces (Library)
 
