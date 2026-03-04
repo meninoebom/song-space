@@ -6,70 +6,12 @@
  * When Song Space becomes a Ralf translator, this mapping moves into a Scene JSON.
  */
 
-// Volume targets per reading (dB). Categories not listed stay at their current level.
-const VOLUME_MAP = {
-  flowing: {
-    harmonic_bed: -6,
-    texture: -8,
-    foundation: -6,
-    groove: -10,
-    bass: -8,
-    hook: -14,
-    accent: -30,
-  },
-  agitated: {
-    groove: -4,
-    bass: -4,
-    foundation: -8,
-    accent: -6,
-    harmonic_bed: -18,
-    texture: -16,
-    hook: -20,
-  },
-  stillness: {
-    texture: -8,
-    harmonic_bed: -12,
-    bass: -20,
-    foundation: -40,
-    groove: -40,
-    hook: -40,
-    accent: -40,
-  },
-  reaching: {
-    hook: -6,
-    harmonic_bed: -6,
-    texture: -10,
-    foundation: -10,
-    groove: -12,
-    bass: -10,
-    accent: -14,
-  },
-  // Relational readings (two bodies)
-  unison: {
-    hook: -4,
-    harmonic_bed: -4,
-    texture: -6,
-    foundation: -8,
-    groove: -10,
-    bass: -8,
-    accent: -16,
-  },
-  opposition: {
-    groove: -2,
-    accent: -4,
-    bass: -4,
-    foundation: -6,
-    harmonic_bed: -14,
-    texture: -14,
-    hook: -16,
-  },
-};
+import { DEFAULT_SCORE } from './score.js';
 
-// Baseline when no reading is strongly active
-const QUIET_VOLUMES = {
-  foundation: -20, groove: -20, bass: -14,
-  harmonic_bed: -12, hook: -40, texture: -8, accent: -40,
-};
+// Volume targets and baseline from score config.
+// Issue #2 will refactor applyMapping to accept these as parameters.
+const VOLUME_MAP = DEFAULT_SCORE.mappings.volumeMap;
+const QUIET_VOLUMES = DEFAULT_SCORE.mappings.quietVolumes;
 
 import { CATEGORIES } from './constants.js';
 

@@ -8,23 +8,10 @@
  * The arc is config, not code — swap DEFAULT_ARC to change the entire experience.
  */
 
-export const DEFAULT_ARC = {
-  phases: [
-    { id: 'await',     categories: ['texture'],                                                                     duration: null, trigger: 'movement' },
-    { id: 'emerge',    categories: ['texture', 'bass'],                                                             duration: [40, 50] },
-    { id: 'build',     categories: ['texture', 'bass', 'foundation', 'harmonic_bed'],                               duration: [60, 80] },
-    { id: 'peak',      categories: ['texture', 'bass', 'foundation', 'harmonic_bed', 'groove', 'hook', 'accent'],   duration: [50, 65] },
-    { id: 'breakdown', categories: ['texture', 'harmonic_bed'],                                                     duration: [25, 35] },
-    { id: 'resolve',   categories: ['texture', 'bass', 'foundation', 'harmonic_bed', 'groove', 'hook'],             duration: [50, 65] },
-  ],
-  sectionMap: {
-    emerge: 'intro',
-    build: 'verse',
-    peak: 'chorus',
-    breakdown: 'bridge',
-    resolve: 'outro',
-  },
-};
+import { DEFAULT_SCORE } from './score.js';
+
+/** @deprecated Import from score.js instead. Kept for backwards compatibility. */
+export const DEFAULT_ARC = DEFAULT_SCORE.arc;
 
 const ENGAGEMENT_WINDOW = 300; // frames (~10s at 30fps)
 const MOVEMENT_TRIGGER_THRESHOLD = 0.15;
