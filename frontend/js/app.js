@@ -12,8 +12,8 @@ import { applyMapping } from './mapping.js';
 import { ArcEngine } from './arc.js';
 import { CATEGORIES } from './constants.js';
 
-const API_URL = window.location.hostname === 'localhost'
-  ? 'http://localhost:8000'
+const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+  ? window.location.origin
   : 'https://song-blender-api-production.up.railway.app';
 
 const engine = new AudioEngine();
