@@ -10,6 +10,8 @@ import { MovementDetector, computeRelational } from './movement.js';
 import { ReadingsEngine } from './readings.js';
 import { applyMapping } from './mapping.js';
 import { ArcEngine } from './arc.js';
+import { TriggerEngine } from './trigger-engine.js';
+import { applyTriggerActions } from './trigger-actions.js';
 import { CATEGORIES } from './constants.js';
 import { DEFAULT_SCORE } from './score.js';
 
@@ -35,6 +37,7 @@ let playing = false;
 let songLoaded = false;
 let mode = 'manual'; // 'manual' | 'webcam' | 'blend' | 'arc'
 let arc = null;      // ArcEngine instance (created on arc mode play)
+const triggerEngine = new TriggerEngine(DEFAULT_SCORE.triggers);
 let arcFadeTimeout = null; // timeout ID for post-arc fade-to-silence
 let lastFrameTime = null; // for dt calculation
 const phaseIndicator = document.getElementById('phase-indicator');
@@ -96,6 +99,7 @@ playBtn.addEventListener('click', async () => {
     engine.stop();
     playing = false;
     arc = null;
+    triggerEngine.reset();
     if (arcFadeTimeout) { clearTimeout(arcFadeTimeout); arcFadeTimeout = null; }
     if (phaseIndicator) phaseIndicator.style.display = 'none';
     setStatus('Stopped');
@@ -109,6 +113,7 @@ playBtn.addEventListener('click', async () => {
       }
     } else if (mode === 'arc') {
       arc = new ArcEngine(DEFAULT_SCORE.arc);
+      triggerEngine.reset();
       lastFrameTime = null;
       arc.onPhaseChange = handlePhaseChange;
       arc.onComplete = handleArcComplete;
@@ -272,6 +277,13 @@ function detectLoop() {
       const phase = arc.getCurrentPhase();
       if (phase) {
         applyMapping(finalReadings, engine, phase.categories, DEFAULT_SCORE.mappings);
+
+        // Evaluate edge triggers and apply actions
+        const triggerActions = triggerEngine.update(finalReadings, phase.categories, dt);
+        if (triggerActions.length > 0) {
+          applyTriggerActions(triggerActions, engine, phase.categories);
+        }
+
         updatePhaseIndicator(phase);
       }
     }
