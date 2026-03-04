@@ -54,10 +54,12 @@ picker.onSongSelected = async (metadata) => {
   setStatus(`Loading ${metadata.name}...`);
   engine.onLoadProgress = (loaded, total) => setStatus(`Loading loops: ${loaded}/${total}`);
   try { await engine.load(metadata, API_URL); }
-  catch (err) { setStatus(`Failed to load: ${err.message}`); return; }
+  catch (err) { console.error('Failed to load song:', err); setStatus(`Failed to load ${metadata.name}: ${err.message}`); return; }
   if (DEBUG) { grid.render(metadata); grid.onTrackToggle = (f, m) => engine.setTrackMuted(f, m); }
-  try { await webcam.start(detectLoop); } catch { setStatus('Webcam unavailable — song will play on its own'); }
-  await startArc();
+  try { await webcam.start(); } catch (err) { console.error('Webcam init:', err); }
+  try { await startArc(); } catch (err) { console.error('Audio start failed:', err); setStatus('Audio failed — try clicking the page and selecting again'); return; }
+  if (webcam.isRunning()) detectLoop();
+  else fallbackLoop();
 };
 
 async function startArc() {
@@ -66,6 +68,7 @@ async function startArc() {
   arc = new ArcEngine(DEFAULT_SCORE.arc);
   triggerEngine.reset();
   lastFrameTime = null;
+  _lastPct = -1;
   arc.onPhaseChange = handlePhaseChange;
   arc.onComplete = handleArcComplete;
   for (const cat of CATEGORIES) engine.setCategoryVolume(cat, cat === 'texture' ? -12 : -60);
@@ -82,6 +85,17 @@ function stopArc() {
   triggerEngine.reset();
   playing = false;
   if (phaseEl) phaseEl.style.display = 'none';
+}
+
+function fallbackLoop() {
+  if (!playing || !arc) return;
+  const ts = performance.now() / 1000;
+  const dt = lastFrameTime ? ts - lastFrameTime : 1 / 30;
+  lastFrameTime = ts;
+  arc.update(dt, 0);
+  const phase = arc.getCurrentPhase();
+  if (phase) updatePhase(phase);
+  requestAnimationFrame(fallbackLoop);
 }
 
 function detectLoop() {

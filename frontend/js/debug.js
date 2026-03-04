@@ -2,12 +2,10 @@
  * Debug overlay — displays movement qualities and readings as text bars.
  */
 
-function bar(v, width = 16) {
+export function bar(v, width = 16) {
   const filled = Math.round(v * width);
   return '█'.repeat(filled) + '░'.repeat(width - filled);
 }
-
-export { bar };
 
 export function updateDebug(panel, allQualities, readingValues, relQualities) {
   if (!panel || panel.style.display === 'none') return;
