@@ -211,8 +211,8 @@ export class MovementDetector {
     }
 
     // Clap detection: wrist distance drops below threshold while velocity is high
-    if (lWrist.visibility > 0.3 && rWrist.visibility > 0.3) {
-      const wristDist = dist(lWrist, rWrist);
+    if (landmarks[15].visibility > 0.3 && landmarks[16].visibility > 0.3) {
+      const wristDist = dist(landmarks[15], landmarks[16]);
       this._wristDistHistory.push(wristDist);
       while (this._wristDistHistory.length > 10) this._wristDistHistory.shift();
 
@@ -230,8 +230,6 @@ export class MovementDetector {
     // Jump detection: hip Y rises above rolling baseline
     if (lHip.visibility > 0.3 && rHip.visibility > 0.3) {
       const hipMidY = (lHip.y + rHip.y) / 2;
-      this._hipYHistory.push(hipMidY);
-      while (this._hipYHistory.length > 60) this._hipYHistory.shift();
 
       if (this._hipYHistory.length >= 10) {
         const baseline = mean(this._hipYHistory);
@@ -239,6 +237,8 @@ export class MovementDetector {
           this._jumpValue = 1.0;
         }
       }
+      this._hipYHistory.push(hipMidY);
+      while (this._hipYHistory.length > 60) this._hipYHistory.shift();
     }
     this._jumpValue *= 0.85;
     out.jump = this._jumpValue;
