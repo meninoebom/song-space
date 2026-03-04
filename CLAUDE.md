@@ -105,12 +105,13 @@ Config files at repo root:
 ## Local Development
 
 ```bash
-cd backend
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-# Create .env with REPLICATE_API_TOKEN=...
-python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+make setup   # one-time: creates venv + installs deps
+make dev     # runs uvicorn with --reload on localhost:8000
 ```
+
+Frontend: http://localhost:8000/app/ (served by FastAPI, no separate process)
+
+**Note:** Create `backend/.env` with `REPLICATE_API_TOKEN=...` if processing new songs. Library songs work without it.
 
 ## API
 
