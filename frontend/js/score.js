@@ -168,5 +168,23 @@ export const DEFAULT_SCORE = {
       edge: 'exit',
       action: { restore: true, rampTime: 0.05 },
     },
+    {
+      id: 'clap-accent',
+      on: 'clapping',
+      edge: 'enter',
+      action: { oneshot: { category: 'accent', volumeDb: -6 } },
+    },
+    {
+      id: 'arms-open-filter',
+      on: 'arms_up',
+      edge: 'enter',
+      action: { filterSweep: { category: 'harmonic_bed', from: 800, to: 5000, duration: 2 } },
+    },
+    {
+      id: 'arms-close-filter',
+      on: 'arms_up',
+      edge: 'exit',
+      action: { filterSweep: { category: 'harmonic_bed', from: 5000, to: 800, duration: 1.5 } },
+    },
   ],
 };

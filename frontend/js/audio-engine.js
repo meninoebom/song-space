@@ -243,7 +243,8 @@ export class AudioEngine {
     }));
   }
 
-  _triggerRandomOneshot(category, volumeDb) {
+  /** Play a one-shot sound from a category. Picks a random loaded player. */
+  triggerOneshot(category, volumeDb = -6) {
     const entries = this.players[category];
     if (!entries || entries.length === 0) return;
     const { player } = entries[Math.floor(Math.random() * entries.length)];
@@ -256,6 +257,16 @@ export class AudioEngine {
       player.seek(0);
       player.start();
     } catch (e) { console.warn(`Oneshot trigger failed (${category}):`, e); }
+  }
+
+  /** Sweep a category's lowpass filter frequency over time. */
+  sweepFilter(category, fromFreq, toFreq, duration) {
+    const filter = this.filters[category];
+    if (!filter) return;
+    try {
+      filter.frequency.rampTo(fromFreq, 0);
+      filter.frequency.rampTo(toFreq, duration);
+    } catch (e) { console.warn(`Filter sweep failed (${category}):`, e); }
   }
 
   dispose() {

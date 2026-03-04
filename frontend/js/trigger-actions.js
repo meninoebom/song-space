@@ -31,5 +31,18 @@ export function applyTriggerActions(actions, engine, allCategories = []) {
         }
       }
     }
+
+    if (action.oneshot) {
+      engine.triggerOneshot(action.oneshot.category, action.oneshot.volumeDb ?? -6);
+    }
+
+    if (action.filterSweep) {
+      const s = action.filterSweep;
+      engine.sweepFilter(s.category, s.from, s.to, s.duration);
+    }
+
+    if (action.swapLoop) {
+      engine.setActiveLoop(action.swapLoop.category, action.swapLoop.index);
+    }
   }
 }
