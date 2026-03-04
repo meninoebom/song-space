@@ -15,8 +15,8 @@ export function drawSkeletons(canvas, allLandmarks, bodyCount, readingValues) {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
 
-  const W = canvas.width = 200;
-  const H = canvas.height = 150;
+  const W = canvas.width = canvas.clientWidth || 200;
+  const H = canvas.height = canvas.clientHeight || 150;
   ctx.clearRect(0, 0, W, H);
 
   // Tint background for relational readings
@@ -34,7 +34,7 @@ export function drawSkeletons(canvas, allLandmarks, bodyCount, readingValues) {
     const color = BODY_COLORS[b];
 
     ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
+    ctx.lineWidth = Math.max(2, W / 120);
     ctx.lineCap = 'round';
 
     for (const [a, i] of POSE_CONNECTIONS) {
@@ -47,12 +47,14 @@ export function drawSkeletons(canvas, allLandmarks, bodyCount, readingValues) {
       }
     }
 
+    const jointR = Math.max(3, W / 80);
+    const noseR = Math.max(5, W / 50);
     ctx.fillStyle = color;
     for (const i of [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28]) {
       const lm = landmarks[i];
       if (lm.visibility > 0.3) {
         ctx.beginPath();
-        ctx.arc((1 - lm.x) * W, lm.y * H, 3, 0, Math.PI * 2);
+        ctx.arc((1 - lm.x) * W, lm.y * H, jointR, 0, Math.PI * 2);
         ctx.fill();
       }
     }
@@ -60,7 +62,7 @@ export function drawSkeletons(canvas, allLandmarks, bodyCount, readingValues) {
     const nose = landmarks[0];
     if (nose.visibility > 0.3) {
       ctx.beginPath();
-      ctx.arc((1 - nose.x) * W, nose.y * H, 5, 0, Math.PI * 2);
+      ctx.arc((1 - nose.x) * W, nose.y * H, noseR, 0, Math.PI * 2);
       ctx.fill();
     }
   }

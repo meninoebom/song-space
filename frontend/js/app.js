@@ -13,6 +13,8 @@ import { CATEGORIES } from './constants.js';
 import { DEFAULT_SCORE } from './score.js';
 import { drawSkeletons } from './skeleton.js';
 import { updateDebug, bar } from './debug.js';
+import { ReadingsMeter } from './readings-meter.js';
+import { StageDirections } from './stage-directions.js';
 import * as webcam from './webcam.js';
 
 const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
@@ -33,6 +35,9 @@ const status = document.getElementById('status');
 const phaseEl = document.getElementById('phase-indicator');
 const debugPanel = document.getElementById('debug-panel');
 const skeletonCanvas = document.getElementById('skeleton-canvas');
+const bodyCanvas = document.getElementById('body-canvas');
+const meter = new ReadingsMeter(document.getElementById('readings-meter'));
+const directions = new StageDirections(document.getElementById('stage-hint'));
 
 let arc = null;
 let arcFadeTimeout = null;
@@ -42,11 +47,10 @@ let playing = false;
 const setStatus = msg => { if (status) status.textContent = msg; };
 
 if (DEBUG) {
+  document.body.classList.add('debug');
   document.getElementById('controls')?.style.setProperty('display', 'flex');
   if (debugPanel) debugPanel.style.display = 'block';
   if (skeletonCanvas) skeletonCanvas.style.display = 'block';
-} else {
-  document.getElementById('loop-grid')?.style.setProperty('display', 'none');
 }
 
 picker.onSongSelected = async (metadata) => {
@@ -73,6 +77,7 @@ async function startArc() {
   arc.onComplete = handleArcComplete;
   for (const cat of CATEGORIES) engine.setCategoryVolume(cat, cat === 'texture' ? -12 : -60);
   if (phaseEl) { phaseEl.style.display = 'block'; phaseEl.textContent = 'AWAIT — move to begin'; }
+  directions.show(arc.getCurrentPhase());
   if (DEBUG) grid.setAvailableCategories(['texture']);
   playing = true;
   setStatus('Move to begin');
@@ -85,6 +90,7 @@ function stopArc() {
   triggerEngine.reset();
   playing = false;
   if (phaseEl) phaseEl.style.display = 'none';
+  directions.hide();
 }
 
 function fallbackLoop() {
@@ -128,6 +134,8 @@ function detectLoop() {
         if (actions.length > 0) applyTriggerActions(actions, engine, phase.categories);
         updatePhase(phase);
       }
+      drawSkeletons(bodyCanvas, results.landmarks, bodyCount, finalReadings);
+      meter.render(finalReadings);
       if (DEBUG) {
         drawSkeletons(skeletonCanvas, results.landmarks, bodyCount, finalReadings);
         updateDebug(debugPanel, quals, finalReadings, relQuals);
@@ -161,13 +169,16 @@ function handlePhaseChange(phase) {
     }
   }
   setStatus(phase.id.toUpperCase());
-  if (phaseEl) updatePhase(arc.getCurrentPhase());
+  const current = arc.getCurrentPhase();
+  if (phaseEl) updatePhase(current);
+  directions.show(current);
   if (DEBUG) grid.setAvailableCategories(phase.categories);
 }
 
 function handleArcComplete() {
   setStatus('');
   if (phaseEl) phaseEl.textContent = 'COMPLETE';
+  directions.complete();
   const fadeDur = engine.getBarDuration() * 8;
   engine.fadeOutAll(fadeDur);
   arcFadeTimeout = setTimeout(() => { arcFadeTimeout = null; stopArc(); setStatus('Select a song to go again'); }, fadeDur * 1000 + 500);
@@ -180,6 +191,7 @@ function updatePhase(phase) {
   if (pct === _lastPct) return;
   _lastPct = pct;
   phaseEl.textContent = `${phase.id.toUpperCase()} ${bar(phase.progress, 20)} ${pct}%  (${phase.index + 1}/${phase.totalPhases})`;
+  directions.update(phase.progress);
 }
 
 if (DEBUG) {
