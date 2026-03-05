@@ -30,6 +30,7 @@ main {
   gap: 24px;
   padding: 24px 32px;
   max-width: 1400px;
+  height: calc(100vh - 100px);
 }
 
 /* Song Picker */
@@ -58,6 +59,20 @@ main {
 .song-card.selected {
   border-color: #8af;
   background: #1a1a3a;
+}
+
+.song-card.playing {
+  border-color: #8f8;
+  background: #1a2a1a;
+}
+
+.song-card.playing::after {
+  content: 'playing — click to stop';
+  display: block;
+  margin-top: 8px;
+  font-size: 11px;
+  color: #8f8;
+  letter-spacing: 1px;
 }
 
 .song-card h3 {
@@ -126,7 +141,7 @@ main {
 #stage-container {
   flex: 1;
   position: relative;
-  min-height: 400px;
+  min-height: 0;
   background: #000;
   border-radius: 8px;
   overflow: hidden;

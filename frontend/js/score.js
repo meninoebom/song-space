@@ -23,12 +23,12 @@ export const DEFAULT_SCORE = {
 
   arc: {
     phases: [
-      { id: 'await',     categories: ['texture'],                                                                   duration: null, trigger: 'movement', hint: 'move to begin' },
-      { id: 'emerge',    categories: ['texture', 'bass'],                                                           duration: [25, 35], hint: 'slow and deliberate' },
-      { id: 'build',     categories: ['texture', 'bass', 'foundation', 'harmonic_bed'],                             duration: [50, 70], hint: 'fill the space' },
-      { id: 'peak',      categories: ['texture', 'bass', 'foundation', 'harmonic_bed', 'groove', 'hook', 'accent'], duration: [50, 65], hint: 'everything you have' },
-      { id: 'breakdown', categories: ['texture', 'harmonic_bed'],                                                   duration: [20, 30], hint: 'go still' },
-      { id: 'resolve',   categories: ['texture', 'bass', 'foundation', 'harmonic_bed', 'groove', 'hook'],           duration: [40, 55], hint: 'bring it home' },
+      { id: 'await',     categories: ['texture'],                                                                   duration: null, trigger: 'movement' },
+      { id: 'emerge',    categories: ['texture', 'bass'],                                                           duration: [25, 35] },
+      { id: 'build',     categories: ['texture', 'bass', 'foundation', 'harmonic_bed'],                             duration: [50, 70] },
+      { id: 'peak',      categories: ['texture', 'bass', 'foundation', 'harmonic_bed', 'groove', 'hook', 'accent'], duration: [50, 65] },
+      { id: 'breakdown', categories: ['texture', 'harmonic_bed'],                                                   duration: [20, 30] },
+      { id: 'resolve',   categories: ['texture', 'bass', 'foundation', 'harmonic_bed', 'groove', 'hook'],           duration: [40, 55] },
     ],
     sectionMap: {
       emerge: 'intro',

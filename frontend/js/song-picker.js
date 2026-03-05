@@ -7,6 +7,9 @@ export class SongPicker {
     this.container = container;
     this.apiUrl = apiUrl;
     this.onSongSelected = null; // callback(songMetadata)
+    this.onSongStopped = null;  // callback()
+    this._activeSlug = null;
+    this._cards = {};
   }
 
   async load() {
@@ -33,7 +36,8 @@ export class SongPicker {
           </div>
           <div class="song-sections">${song.sections.join(' · ')}</div>
         `;
-        card.addEventListener('click', () => this._select(song.slug, card));
+        card.addEventListener('click', () => this._toggle(song.slug, card));
+        this._cards[song.slug] = card;
         this.container.appendChild(card);
       }
     } catch (err) {
@@ -41,10 +45,18 @@ export class SongPicker {
     }
   }
 
-  async _select(slug, card) {
-    // Highlight selected card
-    this.container.querySelectorAll('.song-card').forEach(c => c.classList.remove('selected'));
-    card.classList.add('selected');
+  async _toggle(slug, card) {
+    // Click playing song → stop
+    if (this._activeSlug === slug) {
+      this._clearPlaying();
+      if (this.onSongStopped) this.onSongStopped();
+      return;
+    }
+
+    // Highlight
+    this._clearPlaying();
+    card.classList.add('selected', 'playing');
+    this._activeSlug = slug;
 
     try {
       const res = await fetch(`${this.apiUrl}/api/library/${slug}`);
@@ -52,6 +64,17 @@ export class SongPicker {
       if (this.onSongSelected) this.onSongSelected(metadata);
     } catch (err) {
       console.error('Failed to load song:', err);
+      this._clearPlaying();
     }
+  }
+
+  _clearPlaying() {
+    this.container.querySelectorAll('.song-card').forEach(c => c.classList.remove('selected', 'playing'));
+    this._activeSlug = null;
+  }
+
+  /** Called externally when playback ends (e.g. arc complete) */
+  clearActive() {
+    this._clearPlaying();
   }
 }

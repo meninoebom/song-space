@@ -50,7 +50,6 @@ export class ArcEngine {
       categories: phase.categories,
       progress,
       section,
-      hint: phase.hint || null,
       index: this.phaseIndex,
       totalPhases: this.config.phases.length,
     };

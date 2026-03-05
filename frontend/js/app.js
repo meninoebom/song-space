@@ -66,6 +66,11 @@ picker.onSongSelected = async (metadata) => {
   else fallbackLoop();
 };
 
+picker.onSongStopped = () => {
+  if (playing) stopArc();
+  setStatus('Select a song to begin');
+};
+
 async function startArc() {
   await Tone.start();
   engine.start();
@@ -77,7 +82,7 @@ async function startArc() {
   arc.onComplete = handleArcComplete;
   for (const cat of CATEGORIES) engine.setCategoryVolume(cat, cat === 'texture' ? -12 : -60);
   if (phaseEl) { phaseEl.style.display = 'block'; phaseEl.textContent = 'AWAIT — move to begin'; }
-  directions.show(arc.getCurrentPhase());
+  directions.show('move to begin');
   if (DEBUG) grid.setAvailableCategories(['texture']);
   playing = true;
   setStatus('Move to begin');
@@ -91,6 +96,7 @@ function stopArc() {
   playing = false;
   if (phaseEl) phaseEl.style.display = 'none';
   directions.hide();
+  picker.clearActive();
 }
 
 function fallbackLoop() {
@@ -171,14 +177,14 @@ function handlePhaseChange(phase) {
   setStatus(phase.id.toUpperCase());
   const current = arc.getCurrentPhase();
   if (phaseEl) updatePhase(current);
-  directions.show(current);
+  directions.hide();
   if (DEBUG) grid.setAvailableCategories(phase.categories);
 }
 
 function handleArcComplete() {
   setStatus('');
   if (phaseEl) phaseEl.textContent = 'COMPLETE';
-  directions.complete();
+  directions.show('complete');
   const fadeDur = engine.getBarDuration() * 8;
   engine.fadeOutAll(fadeDur);
   arcFadeTimeout = setTimeout(() => { arcFadeTimeout = null; stopArc(); setStatus('Select a song to go again'); }, fadeDur * 1000 + 500);
@@ -191,7 +197,6 @@ function updatePhase(phase) {
   if (pct === _lastPct) return;
   _lastPct = pct;
   phaseEl.textContent = `${phase.id.toUpperCase()} ${bar(phase.progress, 20)} ${pct}%  (${phase.index + 1}/${phase.totalPhases})`;
-  directions.update(phase.progress);
 }
 
 if (DEBUG) {
