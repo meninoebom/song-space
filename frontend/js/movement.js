@@ -1,13 +1,12 @@
 /**
  * Movement detection — extracts body qualities from MediaPipe Pose landmarks.
- * Movement analysis engine — MediaPipe landmarks to body qualities.
  *
  * Usage:
  *   const detector = new MovementDetector();
  *   // In detection loop:
  *   const qualities = detector.update(landmarks, timestamp);
  *   // qualities = { velocity, jerkiness, symmetry, coherence, contraction,
- *   //               verticality, ankleSpread, wristSpread } (all 0-1)
+ *   //               verticality, wristSpread, armsRaised, handHeight, hipHeight } (all 0-1)
  */
 
 // --- One-Euro Filter (smooth noisy landmark coordinates) ---
@@ -107,11 +106,11 @@ export class MovementDetector {
       contraction:   new AdaptiveRange(0.01, 0.15),
       verticality:   new AdaptiveRange(0.02, 0.2),
       symmetry:      new AdaptiveRange(0, 1, 0.999),
-      limbExtension: new AdaptiveRange(0, 0.3),
       coherence:     new AdaptiveRange(0, 0.01, 0.999),
-      ankleSpread:   new AdaptiveRange(0, 0.2),
       wristSpread:   new AdaptiveRange(0, 0.3),
       armsRaised:    new AdaptiveRange(-0.1, 0.3),
+      handHeight:    new AdaptiveRange(0.2, 0.8),
+      hipHeight:     new AdaptiveRange(0.3, 0.8),
     };
 
     // History buffers
@@ -123,12 +122,6 @@ export class MovementDetector {
     this.leftVelHistory = [];
     this.rightVelHistory = [];
     this.velDiffHistory = [];
-
-    // Impulse state for clap/jump
-    this._clapValue = 0;
-    this._jumpValue = 0;
-    this._wristDistHistory = [];
-    this._hipYHistory = [];
   }
 
   /** Smooth raw MediaPipe landmarks through One-Euro filters. */
@@ -152,8 +145,8 @@ export class MovementDetector {
   _computePrimitives(landmarks) {
     const out = {
       velocity: 0, jerkiness: 0, contraction: 0.5, verticality: 0.5,
-      symmetry: 0.5, coherence: 0.5, ankleSpread: 0.5, wristSpread: 0.5,
-      armsRaised: 0, clap: 0, jump: 0,
+      symmetry: 0.5, coherence: 0.5, wristSpread: 0.5,
+      armsRaised: 0, handHeight: 0.5, hipHeight: 0.5,
     };
 
     // === SHAPE PRIMITIVES ===
@@ -180,29 +173,14 @@ export class MovementDetector {
       out.verticality = this.ranges.verticality.normalize(hipMidY - nose.y);
     }
 
-    // Limb extension: extremity distance from body center
-    const centerX = (landmarks[11].x + landmarks[12].x + landmarks[23].x + landmarks[24].x) / 4;
-    const centerY = (landmarks[11].y + landmarks[12].y + landmarks[23].y + landmarks[24].y) / 4;
-    const extDists = [15, 16, 27, 28]
-      .filter(i => landmarks[i].visibility > 0.3)
-      .map(i => Math.sqrt((landmarks[i].x - centerX) ** 2 + (landmarks[i].y - centerY) ** 2));
-    if (extDists.length > 0) {
-      out._limbExtension = this.ranges.limbExtension.normalize(mean(extDists));
-    }
-
-    // Ankle spread
-    if (landmarks[27].visibility > 0.3 && landmarks[28].visibility > 0.3) {
-      out.ankleSpread = this.ranges.ankleSpread.normalize(Math.abs(landmarks[27].x - landmarks[28].x));
-    }
-
     // Wrist spread
-    if (landmarks[15].visibility > 0.3 && landmarks[16].visibility > 0.3) {
-      out.wristSpread = this.ranges.wristSpread.normalize(Math.abs(landmarks[15].x - landmarks[16].x));
+    const lWrist = landmarks[15], rWrist = landmarks[16];
+    if (lWrist.visibility > 0.3 && rWrist.visibility > 0.3) {
+      out.wristSpread = this.ranges.wristSpread.normalize(Math.abs(lWrist.x - rWrist.x));
     }
 
     // Arms raised: how much wrists are above shoulders (Y is 0=top, 1=bottom)
     const lShoulder = landmarks[11], rShoulder = landmarks[12];
-    const lWrist = landmarks[15], rWrist = landmarks[16];
     if (lShoulder.visibility > 0.3 && rShoulder.visibility > 0.3 &&
         lWrist.visibility > 0.3 && rWrist.visibility > 0.3) {
       const avgShoulderY = (lShoulder.y + rShoulder.y) / 2;
@@ -210,38 +188,17 @@ export class MovementDetector {
       out.armsRaised = this.ranges.armsRaised.normalize(avgShoulderY - avgWristY);
     }
 
-    // Clap detection: wrist distance drops below threshold while velocity is high
-    if (landmarks[15].visibility > 0.3 && landmarks[16].visibility > 0.3) {
-      const wristDist = dist(landmarks[15], landmarks[16]);
-      this._wristDistHistory.push(wristDist);
-      while (this._wristDistHistory.length > 10) this._wristDistHistory.shift();
-
-      const wasSpread = this._wristDistHistory.length >= 4 &&
-        this._wristDistHistory[this._wristDistHistory.length - 4] > 0.15;
-      const hasVelocity = this.velocityHistory.length > 0 &&
-        mean(this.velocityHistory.slice(-5)) > 0.001;
-      if (wristDist < 0.08 && wasSpread && hasVelocity && this._clapValue < 0.3) {
-        this._clapValue = 1.0;
-      }
+    // Hand height: absolute wrist Y position (1 = high, 0 = low)
+    if (lWrist.visibility > 0.3 && rWrist.visibility > 0.3) {
+      const avgWristY = (lWrist.y + rWrist.y) / 2;
+      out.handHeight = this.ranges.handHeight.normalize(1 - avgWristY);
     }
-    this._clapValue *= 0.85;
-    out.clap = this._clapValue;
 
-    // Jump detection: hip Y rises above rolling baseline
+    // Hip height: absolute hip Y position (1 = standing tall, 0 = crouching/floor)
     if (lHip.visibility > 0.3 && rHip.visibility > 0.3) {
       const hipMidY = (lHip.y + rHip.y) / 2;
-
-      if (this._hipYHistory.length >= 10) {
-        const baseline = mean(this._hipYHistory);
-        if (baseline - hipMidY > 0.06 && this._jumpValue < 0.3) {
-          this._jumpValue = 1.0;
-        }
-      }
-      this._hipYHistory.push(hipMidY);
-      while (this._hipYHistory.length > 60) this._hipYHistory.shift();
+      out.hipHeight = this.ranges.hipHeight.normalize(1 - hipMidY);
     }
-    this._jumpValue *= 0.85;
-    out.jump = this._jumpValue;
 
     // === KINEMATIC PRIMITIVES ===
 
@@ -317,7 +274,7 @@ export class MovementDetector {
 // --- Relational qualities (cross-body) ---
 // Ported from Ralf's relational.ts. Pure function, no state.
 
-const QUALITY_KEYS = ['velocity', 'jerkiness', 'symmetry', 'coherence', 'contraction', 'verticality', 'ankleSpread', 'wristSpread', 'armsRaised'];
+const QUALITY_KEYS = ['velocity', 'jerkiness', 'symmetry', 'coherence', 'contraction', 'verticality', 'wristSpread', 'armsRaised', 'handHeight', 'hipHeight'];
 
 /**
  * Compute relational qualities between two bodies.

@@ -17,9 +17,9 @@ const LERP_RATE = 0.08;
 
 export class ReadingsEngine {
   /**
-   * @param {Array} configs — array of ReadingConfig objects (default: DEFAULT_READINGS)
+   * @param {Array} configs — array of ReadingConfig objects
    */
-  constructor(configs = DEFAULT_READINGS) {
+  constructor(configs) {
     this.configs = configs;
 
     // Per-reading state

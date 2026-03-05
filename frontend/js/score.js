@@ -23,12 +23,12 @@ export const DEFAULT_SCORE = {
 
   arc: {
     phases: [
-      { id: 'await',     categories: ['texture'],                                                                   duration: null, trigger: 'movement', hint: 'move to begin' },
-      { id: 'emerge',    categories: ['texture', 'bass'],                                                           duration: [40, 50], hint: 'slow and deliberate' },
-      { id: 'build',     categories: ['texture', 'bass', 'foundation', 'harmonic_bed'],                             duration: [60, 80], hint: 'expand outward' },
-      { id: 'peak',      categories: ['texture', 'bass', 'foundation', 'harmonic_bed', 'groove', 'hook', 'accent'], duration: [50, 65], hint: 'full presence' },
-      { id: 'breakdown', categories: ['texture', 'harmonic_bed'],                                                   duration: [25, 35], hint: 'find stillness' },
-      { id: 'resolve',   categories: ['texture', 'bass', 'foundation', 'harmonic_bed', 'groove', 'hook'],           duration: [50, 65], hint: 'settle and ground' },
+      { id: 'await',     categories: ['texture'],                                                                   duration: null, trigger: 'movement' },
+      { id: 'emerge',    categories: ['texture', 'bass'],                                                           duration: [25, 35] },
+      { id: 'build',     categories: ['texture', 'bass', 'foundation', 'harmonic_bed'],                             duration: [50, 70] },
+      { id: 'peak',      categories: ['texture', 'bass', 'foundation', 'harmonic_bed', 'groove', 'hook', 'accent'], duration: [50, 65] },
+      { id: 'breakdown', categories: ['texture', 'harmonic_bed'],                                                   duration: [20, 30] },
+      { id: 'resolve',   categories: ['texture', 'bass', 'foundation', 'harmonic_bed', 'groove', 'hook'],           duration: [40, 55] },
     ],
     sectionMap: {
       emerge: 'intro',
@@ -68,18 +68,8 @@ export const DEFAULT_SCORE = {
       },
       {
         id: 'arms_up',
-        mix: { armsRaised: 1.0 },
+        mix: { armsRaised: 0.6, handHeight: 0.4 },
         gate: { armsRaised: { above: 0.4 } },
-      },
-      {
-        id: 'clapping',
-        mix: { clap: 1.0 },
-        gate: {},
-      },
-      {
-        id: 'jumping',
-        mix: { jump: 1.0 },
-        gate: {},
       },
     ],
     relational: [
@@ -99,7 +89,6 @@ export const DEFAULT_SCORE = {
   // --- Interaction designer layer: body → music bindings ---
 
   mappings: {
-    // Volume targets per reading (dB). Categories not listed stay at current level.
     volumeMap: {
       flowing: {
         harmonic_bed: -6, texture: -8, foundation: -6,
@@ -117,6 +106,10 @@ export const DEFAULT_SCORE = {
         hook: -6, harmonic_bed: -6, texture: -10,
         foundation: -10, groove: -12, bass: -10, accent: -14,
       },
+      arms_up: {
+        hook: -4, harmonic_bed: -4, texture: -6,
+        foundation: -8, groove: -8, bass: -8, accent: -10,
+      },
       unison: {
         hook: -4, harmonic_bed: -4, texture: -6,
         foundation: -8, groove: -10, bass: -8, accent: -16,
@@ -125,20 +118,7 @@ export const DEFAULT_SCORE = {
         groove: -2, accent: -4, bass: -4,
         foundation: -6, harmonic_bed: -14, texture: -14, hook: -16,
       },
-      arms_up: {
-        hook: -4, harmonic_bed: -4, texture: -6,
-        foundation: -8, groove: -8, bass: -8, accent: -10,
-      },
-      clapping: {
-        accent: -4, groove: -6, bass: -6,
-        foundation: -8, hook: -10, harmonic_bed: -12, texture: -14,
-      },
-      jumping: {
-        groove: -2, bass: -4, foundation: -4, accent: -6,
-        hook: -8, harmonic_bed: -10, texture: -12,
-      },
     },
-    // Baseline when no reading is strongly active
     quietVolumes: {
       foundation: -20, groove: -20, bass: -14,
       harmonic_bed: -12, hook: -40, texture: -8, accent: -40,
@@ -167,12 +147,6 @@ export const DEFAULT_SCORE = {
       on: 'stillness',
       edge: 'exit',
       action: { restore: true, rampTime: 0.05 },
-    },
-    {
-      id: 'clap-accent',
-      on: 'clapping',
-      edge: 'enter',
-      action: { oneshot: { category: 'accent', volumeDb: -6 } },
     },
     {
       id: 'arms-open-filter',
