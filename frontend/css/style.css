@@ -60,6 +60,34 @@ main {
   background: #1a1a3a;
 }
 
+.song-card.loading {
+  border-color: #fa8;
+  background: rgba(42, 34, 20, 0.95);
+}
+
+.song-card.loading::after {
+  content: 'loading…';
+  display: block;
+  margin-top: 6px;
+  font-size: 11px;
+  color: #fa8;
+  letter-spacing: 1px;
+}
+
+.song-card.playing {
+  border-color: #8f8;
+  background: rgba(26, 42, 26, 0.95);
+}
+
+.song-card.playing::after {
+  content: 'click to stop';
+  display: block;
+  margin-top: 6px;
+  font-size: 11px;
+  color: #8f8;
+  letter-spacing: 1px;
+}
+
 .song-card h3 {
   font-size: 16px;
   font-weight: 500;
@@ -136,27 +164,6 @@ main {
   width: 100%;
   height: 100%;
   display: block;
-}
-
-/* Stage directions */
-#stage-hint {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 36px;
-  font-weight: 200;
-  color: #e0e0e0;
-  letter-spacing: 2px;
-  text-align: center;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.6s ease;
-  z-index: 10;
-}
-
-#stage-hint.visible {
-  opacity: 1;
 }
 
 /* Readings meter */
@@ -329,9 +336,18 @@ body.debug .debug-only {
   padding: 12px 20px;
   font-family: 'SF Mono', 'Fira Code', monospace;
   font-size: 13px;
-  color: #8af;
   letter-spacing: 1px;
   z-index: 100;
+}
+
+.phase-current {
+  color: #8af;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.phase-dim {
+  color: #444;
 }
 
 /* Dimmed grid cells (phase-gated) */

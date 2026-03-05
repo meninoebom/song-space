@@ -85,7 +85,11 @@ async function startArc() {
   arc.onPhaseChange = handlePhaseChange;
   arc.onComplete = handleArcComplete;
   for (const cat of CATEGORIES) engine.setCategoryVolume(cat, cat === 'texture' ? -12 : -60);
-  if (phaseEl) { phaseEl.style.display = 'block'; phaseEl.textContent = 'AWAIT — move to begin'; }
+  if (phaseEl) {
+    phaseEl.style.display = 'block';
+    _phaseNames = DEFAULT_SCORE.arc.phases.map(p => p.id);
+    renderPhaseIndicator(0);
+  }
   if (DEBUG) grid.setAvailableCategories(['texture']);
   playing = true;
   setStatus('Move to begin');
@@ -190,12 +194,23 @@ function handleArcComplete() {
 }
 
 let _lastPct = -1;
+let _phaseNames = [];
+
+function renderPhaseIndicator(currentIndex) {
+  if (!phaseEl) return;
+  phaseEl.innerHTML = _phaseNames
+    .map((name, i) => i === currentIndex
+      ? `<span class="phase-current">${name}</span>`
+      : `<span class="phase-dim">${name}</span>`)
+    .join(' · ');
+}
+
 function updatePhase(phase) {
   if (!phaseEl) return;
   const pct = Math.round(phase.progress * 100);
   if (pct === _lastPct) return;
   _lastPct = pct;
-  phaseEl.textContent = `${phase.id.toUpperCase()} ${bar(phase.progress, 20)} ${pct}%  (${phase.index + 1}/${phase.totalPhases})`;
+  renderPhaseIndicator(phase.index);
 }
 
 if (DEBUG) {
