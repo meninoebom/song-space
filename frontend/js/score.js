@@ -24,11 +24,11 @@ export const DEFAULT_SCORE = {
   arc: {
     phases: [
       { id: 'await',     categories: ['texture'],                                                                   duration: null, trigger: 'movement', hint: 'move to begin' },
-      { id: 'emerge',    categories: ['texture', 'bass'],                                                           duration: [40, 50], hint: 'slow and deliberate' },
-      { id: 'build',     categories: ['texture', 'bass', 'foundation', 'harmonic_bed'],                             duration: [60, 80], hint: 'expand outward' },
-      { id: 'peak',      categories: ['texture', 'bass', 'foundation', 'harmonic_bed', 'groove', 'hook', 'accent'], duration: [50, 65], hint: 'full presence' },
-      { id: 'breakdown', categories: ['texture', 'harmonic_bed'],                                                   duration: [25, 35], hint: 'find stillness' },
-      { id: 'resolve',   categories: ['texture', 'bass', 'foundation', 'harmonic_bed', 'groove', 'hook'],           duration: [50, 65], hint: 'settle and ground' },
+      { id: 'emerge',    categories: ['texture', 'bass'],                                                           duration: [25, 35], hint: 'slow and deliberate' },
+      { id: 'build',     categories: ['texture', 'bass', 'foundation', 'harmonic_bed'],                             duration: [50, 70], hint: 'fill the space' },
+      { id: 'peak',      categories: ['texture', 'bass', 'foundation', 'harmonic_bed', 'groove', 'hook', 'accent'], duration: [50, 65], hint: 'everything you have' },
+      { id: 'breakdown', categories: ['texture', 'harmonic_bed'],                                                   duration: [20, 30], hint: 'go still' },
+      { id: 'resolve',   categories: ['texture', 'bass', 'foundation', 'harmonic_bed', 'groove', 'hook'],           duration: [40, 55], hint: 'bring it home' },
     ],
     sectionMap: {
       emerge: 'intro',
@@ -74,12 +74,12 @@ export const DEFAULT_SCORE = {
       {
         id: 'clapping',
         mix: { clap: 1.0 },
-        gate: {},
+        gate: { clap: { above: 0.3 } },
       },
       {
         id: 'jumping',
         mix: { jump: 1.0 },
-        gate: {},
+        gate: { jump: { above: 0.3 } },
       },
     ],
     relational: [
