@@ -40,6 +40,11 @@ export const DEFAULT_SCORE = {
   },
 
   // --- Interaction designer layer: body interpretation ---
+  //
+  // Readings are fed by two types of body input:
+  //   - Qualities: continuous 0-1 signals (velocity, coherence, handHeight, etc.)
+  //   - Gestures: impulse detections (jump) implemented as spike + decay
+  // Both flow through the same pipeline via mix + gate config.
 
   readings: {
     solo: [
@@ -68,13 +73,14 @@ export const DEFAULT_SCORE = {
       },
       {
         id: 'arms_up',
-        mix: { armsRaised: 1.0 },
+        mix: { armsRaised: 0.6, handHeight: 0.4 },
         gate: { armsRaised: { above: 0.4 } },
       },
       {
-        id: 'clapping',
-        mix: { clap: 1.0 },
-        gate: { clap: { above: 0.3 } },
+        id: 'low',
+        mix: { hipHeight: 0.5, contraction: 0.3 },
+        gate: { hipHeight: { below: 0.35 } },
+        _invertInMix: { hipHeight: 0.2 },
       },
       {
         id: 'jumping',
@@ -117,6 +123,18 @@ export const DEFAULT_SCORE = {
         hook: -6, harmonic_bed: -6, texture: -10,
         foundation: -10, groove: -12, bass: -10, accent: -14,
       },
+      arms_up: {
+        hook: -4, harmonic_bed: -4, texture: -6,
+        foundation: -8, groove: -8, bass: -8, accent: -10,
+      },
+      low: {
+        bass: -4, foundation: -6, texture: -8,
+        groove: -10, harmonic_bed: -14, hook: -20, accent: -30,
+      },
+      jumping: {
+        groove: -2, bass: -4, foundation: -4, accent: -6,
+        hook: -8, harmonic_bed: -10, texture: -12,
+      },
       unison: {
         hook: -4, harmonic_bed: -4, texture: -6,
         foundation: -8, groove: -10, bass: -8, accent: -16,
@@ -124,18 +142,6 @@ export const DEFAULT_SCORE = {
       opposition: {
         groove: -2, accent: -4, bass: -4,
         foundation: -6, harmonic_bed: -14, texture: -14, hook: -16,
-      },
-      arms_up: {
-        hook: -4, harmonic_bed: -4, texture: -6,
-        foundation: -8, groove: -8, bass: -8, accent: -10,
-      },
-      clapping: {
-        accent: -4, groove: -6, bass: -6,
-        foundation: -8, hook: -10, harmonic_bed: -12, texture: -14,
-      },
-      jumping: {
-        groove: -2, bass: -4, foundation: -4, accent: -6,
-        hook: -8, harmonic_bed: -10, texture: -12,
       },
     },
     // Baseline when no reading is strongly active
@@ -167,12 +173,6 @@ export const DEFAULT_SCORE = {
       on: 'stillness',
       edge: 'exit',
       action: { restore: true, rampTime: 0.05 },
-    },
-    {
-      id: 'clap-accent',
-      on: 'clapping',
-      edge: 'enter',
-      action: { oneshot: { category: 'accent', volumeDb: -6 } },
     },
     {
       id: 'arms-open-filter',

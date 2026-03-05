@@ -1,4 +1,4 @@
-// Song Space — zero-config onboarding: pick a song → see yourself → move to begin.
+// Song Space — pick a song → see yourself → move to begin.
 
 import { AudioEngine } from './audio-engine.js';
 import { SongPicker } from './song-picker.js';
@@ -14,7 +14,6 @@ import { DEFAULT_SCORE } from './score.js';
 import { drawSkeletons } from './skeleton.js';
 import { updateDebug, bar } from './debug.js';
 import { ReadingsMeter } from './readings-meter.js';
-import { StageDirections } from './stage-directions.js';
 import * as webcam from './webcam.js';
 
 const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
@@ -37,7 +36,6 @@ const debugPanel = document.getElementById('debug-panel');
 const skeletonCanvas = document.getElementById('skeleton-canvas');
 const bodyCanvas = document.getElementById('body-canvas');
 const meter = new ReadingsMeter(document.getElementById('readings-meter'));
-const directions = new StageDirections(document.getElementById('stage-hint'));
 
 let arc = null;
 let arcFadeTimeout = null;
@@ -68,7 +66,7 @@ picker.onSongSelected = async (metadata) => {
 
 picker.onSongStopped = () => {
   if (playing) stopArc();
-  setStatus('Select a song to begin');
+  setStatus('Click a song to start');
 };
 
 async function startArc() {
@@ -82,7 +80,6 @@ async function startArc() {
   arc.onComplete = handleArcComplete;
   for (const cat of CATEGORIES) engine.setCategoryVolume(cat, cat === 'texture' ? -12 : -60);
   if (phaseEl) { phaseEl.style.display = 'block'; phaseEl.textContent = 'AWAIT — move to begin'; }
-  directions.show('move to begin');
   if (DEBUG) grid.setAvailableCategories(['texture']);
   playing = true;
   setStatus('Move to begin');
@@ -95,8 +92,6 @@ function stopArc() {
   triggerEngine.reset();
   playing = false;
   if (phaseEl) phaseEl.style.display = 'none';
-  directions.hide();
-  picker.clearActive();
 }
 
 function fallbackLoop() {
@@ -177,17 +172,20 @@ function handlePhaseChange(phase) {
   setStatus(phase.id.toUpperCase());
   const current = arc.getCurrentPhase();
   if (phaseEl) updatePhase(current);
-  directions.hide();
   if (DEBUG) grid.setAvailableCategories(phase.categories);
 }
 
 function handleArcComplete() {
   setStatus('');
   if (phaseEl) phaseEl.textContent = 'COMPLETE';
-  directions.show('complete');
   const fadeDur = engine.getBarDuration() * 8;
   engine.fadeOutAll(fadeDur);
-  arcFadeTimeout = setTimeout(() => { arcFadeTimeout = null; stopArc(); setStatus('Select a song to go again'); }, fadeDur * 1000 + 500);
+  arcFadeTimeout = setTimeout(() => {
+    arcFadeTimeout = null;
+    stopArc();
+    picker.clearActive();
+    setStatus('Click a song to start');
+  }, fadeDur * 1000 + 500);
 }
 
 let _lastPct = -1;
