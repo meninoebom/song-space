@@ -1,5 +1,80 @@
 # Raw Learnings
 
+## 2026-03-04 - Conceptual: Qualities + Gestures → Readings
+
+### The readings layer combines two types of body input
+**Insight:** Readings are fed by a mix of **qualities** (continuous 0-1 signals like velocity, coherence, contraction) and **gestures** (impulse detections like clap, jump). Both flow through the same pipeline: movement.js computes them → score.js defines readings as weighted mixes → ReadingsEngine gates and smooths them. This was discovered empirically — clap/jump were implemented as "impulse qualities" (spike + decay) which naturally fit the continuous pipeline.
+
+**Implications for Ralf:**
+- The Sense + Combine primitives already handle qualities. Gestures fit the same model if they output 0-1 values.
+- DTW gesture recognition (from the Ralf repo) could output impulse qualities the same way — spike on recognition, decay after.
+- Per-adapter gesture training could add custom gesture qualities to the pool. A "clap" detected from webcam landmarks vs. from IMU accelerometer data would both output the same impulse quality shape.
+- The reading config (`mix` + `gate`) is the abstraction that unifies them — the reading doesn't care whether its inputs are qualities or gestures.
+
+**Open question:** How does trained gesture recognition (DTW) fit? Possibly: adapter-specific training produces gesture detectors, each outputs an impulse quality, those feed into readings like any other quality. The reading layer stays generic.
+
+### Stage directions: not a Ralf concept (yet)
+**Decision:** Arc-phase hints (`hint` field in score config) are useful for this specific Song Space project as intro/instructional text, but should NOT be promoted as a composer-facing Ralf concept. Composers annotating arcs with dancer instructions is premature — the arc itself is new enough. Keep hints as project-specific UI, not a framework abstraction.
+
+
+## 2026-03-04 - Issue #18: Score Tuning Pass
+
+### Empty gates on impulse readings cause always-active state
+**Problem:** `clapping` and `jumping` readings had `gate: {}` (empty). Since clap/jump qualities decay exponentially (0.85/frame), the residual value stays above 0 for many frames, making the reading perpetually "active." The meter glows constantly and the trigger fires on every frame.
+**Solution:** Add threshold gates: `{ clap: { above: 0.3 } }` and `{ jump: { above: 0.3 } }`. Only real impulse spikes cross the threshold; decay residuals stay below.
+**Code ref:** `frontend/js/score.js` (clapping/jumping readings)
+
+### End of Issue Retrospective
+**What went well:** Caught the empty-gate bug through config review before manual testing — would have been confusing to debug by dancing.
+**What took longer than expected:** Nothing — config-only change.
+**Would do differently:** Always add gates for impulse-quality readings. Empty gate = always active.
+
+
+## 2026-03-04 - Issue #17: Richer Trigger Actions
+
+### triggerOneshot must respect trigger-mute state
+**Problem:** `triggerOneshot()` bypassed the `_triggerMuted` check that `setCategoryVolume()` enforces. A oneshot could play through a trigger-muted category.
+**Solution:** Add `if (this._triggerMuted[category]) return;` at the top, matching the pattern in `setCategoryVolume()`. Caught in code review.
+**Code ref:** `frontend/js/audio-engine.js:triggerOneshot`
+
+### Cancel prior filter scheduled values before sweeping
+**Problem:** Calling `sweepFilter()` while a prior sweep is in progress queues a new ramp without canceling the old one, causing stutter.
+**Solution:** `filter.frequency.cancelScheduledValues(Tone.now())` before the new `rampTo` calls. Tone.js Parameter objects support this.
+**Code ref:** `frontend/js/audio-engine.js:sweepFilter`
+
+### End of Issue Retrospective
+**What went well:** Clean TDD — 4 new test cases, all pass first try. Implementation was straightforward since AudioEngine already had the infrastructure.
+**What took longer than expected:** Nothing — tight scope, clear acceptance criteria.
+**Would do differently:** Nothing. The publicize-private-method + add-new-method pattern was the right approach.
+
+
+## 2026-03-04 - Issues #13-16: Embodied UX Overhaul
+
+### Impulse qualities via spike + decay pattern
+**Problem:** Clap and jump are discrete events, but the readings pipeline is continuous 0-1.
+**Solution:** Spike to 1.0 on detection, multiply by 0.85 each frame (exponential decay). Stays in the continuous pipeline — trigger engine's `edge: 'enter'` detects onset. No separate event bus needed.
+**Code ref:** `frontend/js/movement.js` (clap/jump sections)
+
+### Jump baseline: compute before pushing current frame
+**Problem:** If hipMidY is pushed to the history buffer before computing baseline, a jump contaminates its own baseline (1/60th but still wrong).
+**Solution:** Compute baseline from history first, then push current frame. Caught in code review.
+**Code ref:** `frontend/js/movement.js` (jump detection)
+
+### Clap false positive prevention
+**Problem:** Hands held together (e.g., prayer position) triggers false claps.
+**Solution:** Three gates: (1) wrist distance < 0.08 (close), (2) was spread 4 frames ago (> 0.15), (3) velocity history shows movement. The `this._clapValue < 0.3` guard prevents re-firing during decay.
+**Code ref:** `frontend/js/movement.js` (clap detection)
+
+### Two-canvas pattern for debug vs production visuals
+**Problem:** Skeleton was hidden behind debug flag. Making it always visible would break debug mode.
+**Solution:** Two separate canvas elements — `#body-canvas` (large, always on) and `#skeleton-canvas` (debug thumbnail). Same `drawSkeletons()` function, different canvas. Zero entanglement.
+
+### End of Issue Retrospective
+**What went well:** Four parallel issues landed cleanly on one branch with separate commits. Impulse quality pattern is elegant.
+**What took longer than expected:** Jest wasn't installed — tests were standalone scripts using assert, not Jest. Had to install jest + configure ESM.
+**Would do differently:** Add jest as a dev dependency early. The standalone assert-based tests work but aren't discoverable.
+
+
 ## 2026-03-04 - Issue #7: Zero-config onboarding
 
 ### Module extraction strategy for large orchestrator files

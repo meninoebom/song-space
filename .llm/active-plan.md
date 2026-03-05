@@ -1,5 +1,5 @@
 # Active Plan: Inhabitable Songs
-Last updated: 2026-03-04 (ALL MVP ISSUES COMPLETE #1-7)
+Last updated: 2026-03-04 (Phase 1 complete, Phase 2: Embodied UX Overhaul)
 
 ## Problem Statement
 Song Space works but doesn't teach visitors what it responds to — new users see a webcam and hear music but don't discover the cause-and-effect relationship between their body and the song.
@@ -230,8 +230,21 @@ TriggerEngine is the only genuinely new module. ✓
 6. **#6 — F3: Wire + tune triggers** — ✅ PR #11. TriggerEngine wired into detection loop, applyTriggerActions helper (15 tests). Tuning deferred to manual testing.
 7. **#7 — F1: Zero-config onboarding** — ✅ PR #12. app.js 479→178 lines. Extracted webcam.js, skeleton.js, debug.js. Default flow: pick song → move to begin.
 
-### What to spike first
-If the trigger *feel* is uncertain, spike F3 with one hardcoded trigger before building the full declarative system. Validate the timing feels musical, then generalize.
+## Phase 2: Embodied UX Overhaul
+
+After manual testing, the experience works technically but fails experientially. This phase makes the invisible visible.
+
+**Ralf alignment:** Everything here is conceptually reusable in Ralf. Arc is Song Space's unique contribution. Readings format is already shared. New concepts (stage directions, impulse qualities) designed as portable abstractions.
+
+### Build Order
+8. **#13 — Central skeleton visualization** — ✅ PR #19
+9. **#14 — Readings meter overlay** — ✅ PR #19
+10. **#15 — Arc-aware stage directions** — ✅ PR #19
+11. **#16 — New gesture qualities** — ✅ PR #19
+12. **#17 — Richer trigger actions** — ✅ PR #20
+13. **#18 — Score tuning pass** — ✅ PR #21 (config review pass; needs manual taste testing)
+
+Issues #13-16 are parallel (no dependencies). #17 depends on #16. #18 depends on #16 + #17.
 
 ## Next Step
-Run `/issues` to decompose into GitHub issues.
+Manual testing of the full embodied UX. All Phase 2 issues complete.
