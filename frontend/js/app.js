@@ -198,11 +198,14 @@ let _phaseNames = [];
 
 function renderPhaseIndicator(currentIndex) {
   if (!phaseEl) return;
-  phaseEl.innerHTML = _phaseNames
-    .map((name, i) => i === currentIndex
-      ? `<span class="phase-current">${name}</span>`
-      : `<span class="phase-dim">${name}</span>`)
-    .join(' · ');
+  phaseEl.textContent = '';
+  _phaseNames.forEach((name, i) => {
+    if (i > 0) phaseEl.append(' · ');
+    const span = document.createElement('span');
+    span.className = i === currentIndex ? 'phase-current' : 'phase-dim';
+    span.textContent = name;
+    phaseEl.appendChild(span);
+  });
 }
 
 function updatePhase(phase) {
