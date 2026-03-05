@@ -1,5 +1,6 @@
 /**
  * Skeleton drawing — renders body tracking visualization on a canvas.
+ * Uses uniform scaling with centering to preserve body proportions.
  */
 
 const POSE_CONNECTIONS = [
@@ -9,6 +10,18 @@ const POSE_CONNECTIONS = [
 ];
 
 const BODY_COLORS = ['#8af', '#fa8'];
+const PADDING = 20;
+
+/** Map normalized landmark coords to canvas coords with uniform scale + centering. */
+function toCanvas(lmX, lmY, W, H) {
+  const scale = Math.min(W, H) - PADDING * 2;
+  const offsetX = (W - scale) / 2;
+  const offsetY = (H - scale) / 2;
+  return {
+    x: offsetX + (1 - lmX) * scale, // mirrored for selfie view
+    y: offsetY + lmY * scale,
+  };
+}
 
 export function drawSkeletons(canvas, allLandmarks, bodyCount, readingValues) {
   if (!canvas || canvas.style.display === 'none') return;
@@ -40,9 +53,11 @@ export function drawSkeletons(canvas, allLandmarks, bodyCount, readingValues) {
     for (const [a, i] of POSE_CONNECTIONS) {
       const la = landmarks[a], lb = landmarks[i];
       if (la.visibility > 0.3 && lb.visibility > 0.3) {
+        const pa = toCanvas(la.x, la.y, W, H);
+        const pb = toCanvas(lb.x, lb.y, W, H);
         ctx.beginPath();
-        ctx.moveTo((1 - la.x) * W, la.y * H);
-        ctx.lineTo((1 - lb.x) * W, lb.y * H);
+        ctx.moveTo(pa.x, pa.y);
+        ctx.lineTo(pb.x, pb.y);
         ctx.stroke();
       }
     }
@@ -53,16 +68,18 @@ export function drawSkeletons(canvas, allLandmarks, bodyCount, readingValues) {
     for (const i of [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28]) {
       const lm = landmarks[i];
       if (lm.visibility > 0.3) {
+        const p = toCanvas(lm.x, lm.y, W, H);
         ctx.beginPath();
-        ctx.arc((1 - lm.x) * W, lm.y * H, jointR, 0, Math.PI * 2);
+        ctx.arc(p.x, p.y, jointR, 0, Math.PI * 2);
         ctx.fill();
       }
     }
 
     const nose = landmarks[0];
     if (nose.visibility > 0.3) {
+      const p = toCanvas(nose.x, nose.y, W, H);
       ctx.beginPath();
-      ctx.arc((1 - nose.x) * W, nose.y * H, noseR, 0, Math.PI * 2);
+      ctx.arc(p.x, p.y, noseR, 0, Math.PI * 2);
       ctx.fill();
     }
   }
