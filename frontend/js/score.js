@@ -94,6 +94,33 @@ export const DEFAULT_SCORE = {
         gate: {},
         intents: [{ intent: 'jumping_blend', mode: 'continuous' }],
       },
+      {
+        id: 'grounded',
+        mix: { legBend: 0.4, contraction: 0.3 },
+        gate: { velocity: { below: 0.3 } },
+        _invertInMix: { verticality: 0.3 },
+        intents: [{ intent: 'grounded_blend', mode: 'continuous' }],
+      },
+      {
+        id: 'coiled',
+        mix: { contraction: 0.5 },
+        gate: { contraction: { above: 0.4 }, velocity: { below: 0.25 } },
+        _invertInMix: { velocity: 0.5 },
+        intents: [{ intent: 'coiled_blend', mode: 'continuous' }],
+        on_exit: ['explosive_release'],
+      },
+      {
+        id: 'explosive',
+        mix: { velocity: 0.4, jerkiness: 0.3, movementScale: 0.3 },
+        gate: { velocity: { above: 0.6 } },
+        intents: [{ intent: 'explosive_slam', mode: 'edge' }],
+      },
+      {
+        id: 'swaying',
+        mix: { velocity: 0.2, coherence: 0.4, symmetry: 0.4 },
+        gate: { velocity: { above: 0.1, below: 0.5 } },
+        intents: [{ intent: 'swaying_blend', mode: 'continuous' }],
+      },
     ],
     relational: [
       {
@@ -144,6 +171,18 @@ export const DEFAULT_SCORE = {
     opposition_blend: [
       { action: 'set_volumes', args: { groove: -2, accent: -4, bass: -4, foundation: -6, harmonic_bed: -14, texture: -14, hook: -16 }, weight: 1 },
     ],
+    grounded_blend: [
+      { action: 'set_volumes', args: { bass: -4, foundation: -6, groove: -8, harmonic_bed: -10, texture: -12, hook: -20, accent: -30 }, weight: 3 },
+      { action: 'set_volumes', args: { bass: -2, foundation: -4, groove: -6, harmonic_bed: -12, texture: -14, hook: -22, accent: -30 }, weight: 1 },
+    ],
+    coiled_blend: [
+      { action: 'set_volumes', args: { texture: -6, harmonic_bed: -8, bass: -10, foundation: -14, groove: -20, hook: -30, accent: -30 }, weight: 3 },
+      { action: 'set_volumes', args: { texture: -4, harmonic_bed: -10, bass: -8, foundation: -16, groove: -22, hook: -30, accent: -30 }, weight: 1 },
+    ],
+    swaying_blend: [
+      { action: 'set_volumes', args: { groove: -4, bass: -6, foundation: -6, harmonic_bed: -8, texture: -10, hook: -12, accent: -16 }, weight: 3 },
+      { action: 'set_volumes', args: { groove: -2, bass: -4, foundation: -8, harmonic_bed: -10, texture: -8, hook: -14, accent: -18 }, weight: 1 },
+    ],
 
     // Edge-triggered intents (with non-determinism via weighted pools)
     drums_drop: [
@@ -157,6 +196,16 @@ export const DEFAULT_SCORE = {
     energy_slam: [
       { action: 'restore', args: { rampTime: 0.05 }, weight: 3 },
       { action: 'restore', args: { rampTime: 0.15 }, weight: 1 },
+    ],
+    explosive_release: [
+      { action: 'restore', args: { rampTime: 0.03 }, weight: 3 },
+      { action: 'oneshot', args: { category: 'accent', volumeDb: -3 }, weight: 2 },
+      { action: 'filter_sweep', args: { category: 'harmonic_bed', from: 400, to: 8000, duration: 1.5 }, weight: 1 },
+    ],
+    explosive_slam: [
+      { action: 'restore', args: { rampTime: 0.02 }, weight: 3 },
+      { action: 'oneshot', args: { category: 'accent', volumeDb: -2 }, weight: 2 },
+      { action: 'filter_sweep', args: { category: 'groove', from: 500, to: 10000, duration: 1 }, weight: 1 },
     ],
     clap_accent: [
       { action: 'oneshot', args: { category: 'accent', volumeDb: -6 }, weight: 3 },

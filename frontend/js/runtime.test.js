@@ -231,6 +231,59 @@ test('runtime: reset clears all state', () => {
 });
 
 // ============================================================
+// Score integration: new readings from T7
+// ============================================================
+
+test('runtime: coiled on_exit fires explosive_release', () => {
+  const engine = mockEngine();
+  const score = {
+    readings: [
+      { id: 'coiled', mix: {}, gate: {},
+        intents: [{ intent: 'coiled_blend', mode: 'continuous' }],
+        on_exit: ['explosive_release'] },
+    ],
+    intents: {
+      coiled_blend: [{ action: 'set_volumes', args: { bass: -4 }, weight: 1 }],
+      explosive_release: [
+        { action: 'restore', args: { rampTime: 0.03 }, weight: 3 },
+        { action: 'oneshot', args: { category: 'accent', volumeDb: -3 }, weight: 2 },
+      ],
+    },
+    mappings: null,
+  };
+  const rt = new RalfRuntime(score, engine);
+  engine.muteCategory('groove', 0.3);
+  rt.update([{ id: 'coiled', value: 0.8, active: true }], ALL_CATS);
+  rt.update([{ id: 'coiled', value: 0, active: false }], ALL_CATS);
+  const hasRestore = engine.calls.some(c => c.fn === 'restoreCategory');
+  const hasOneshot = engine.calls.some(c => c.fn === 'triggerOneshot');
+  assert(hasRestore || hasOneshot, 'should fire restore or oneshot on coiled exit');
+});
+
+test('runtime: explosive edge fires slam action', () => {
+  const engine = mockEngine();
+  const score = {
+    readings: [
+      { id: 'explosive', mix: {}, gate: {},
+        intents: [{ intent: 'explosive_slam', mode: 'edge' }] },
+    ],
+    intents: {
+      explosive_slam: [
+        { action: 'restore', args: { rampTime: 0.02 }, weight: 3 },
+        { action: 'oneshot', args: { category: 'accent', volumeDb: -2 }, weight: 2 },
+      ],
+    },
+    mappings: null,
+  };
+  const rt = new RalfRuntime(score, engine);
+  rt.update([{ id: 'explosive', value: 0, active: false }], ALL_CATS);
+  engine.muteCategory('groove', 0.3);
+  rt.update([{ id: 'explosive', value: 0.9, active: true }], ALL_CATS);
+  const hasAction = engine.calls.some(c => c.fn === 'restoreCategory' || c.fn === 'triggerOneshot');
+  assert(hasAction, 'should fire restore or oneshot on explosive edge');
+});
+
+// ============================================================
 // Summary
 // ============================================================
 
