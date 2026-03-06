@@ -5,10 +5,8 @@ import { SongPicker } from './song-picker.js';
 import { LoopGrid } from './loop-grid.js';
 import { MovementDetector, computeRelational } from './movement.js';
 import { ReadingsEngine } from './readings.js';
-import { applyMapping } from './mapping.js';
 import { ArcEngine } from './arc.js';
-import { TriggerEngine } from './trigger-engine.js';
-import { applyTriggerActions } from './trigger-actions.js';
+import { RalfRuntime } from './runtime.js';
 import { CATEGORIES } from './constants.js';
 import { DEFAULT_SCORE } from './score.js';
 import { drawSkeletons } from './skeleton.js';
@@ -27,7 +25,7 @@ const DEBUG = new URLSearchParams(window.location.search).has('debug');
 const engine = new AudioEngine();
 const picker = new SongPicker(document.getElementById('song-picker'), API_URL);
 const grid = new LoopGrid(document.getElementById('loop-grid'));
-const triggerEngine = new TriggerEngine(DEFAULT_SCORE.triggers);
+let runtime = null;
 const detectors = [new MovementDetector(), new MovementDetector()];
 const soloReadings = [new ReadingsEngine(DEFAULT_SCORE.readings.solo), new ReadingsEngine(DEFAULT_SCORE.readings.solo)];
 const relReadingsEngine = new ReadingsEngine(DEFAULT_SCORE.readings.relational);
@@ -65,7 +63,7 @@ picker.onSongSelected = async (metadata) => {
   catch (err) { console.error('Failed to load song:', err); setStatus(`Failed to load ${metadata.name}: ${err.message}`); picker.clearState(); return; }
   if (gen !== _loadGeneration) return;
   if (DEBUG) { grid.render(metadata); grid.onTrackToggle = (f, m) => engine.setTrackMuted(f, m); }
-  try { await webcam.start(); } catch (err) { console.error('Webcam init:', err); }
+  try { await webcam.start(); } catch (err) { console.error('Webcam init:', err); setStatus('Camera unavailable — music will play automatically'); }
   if (gen !== _loadGeneration) return;
   try { await startArc(); } catch (err) { console.error('Audio start failed:', err); setStatus('Audio failed — try clicking the page and selecting again'); picker.clearState(); return; }
   if (gen !== _loadGeneration) return;
@@ -84,7 +82,8 @@ async function startArc() {
   await Tone.start();
   engine.start();
   arc = new ArcEngine(DEFAULT_SCORE.arc);
-  triggerEngine.reset();
+  const flatReadings = [...DEFAULT_SCORE.readings.solo, ...DEFAULT_SCORE.readings.relational];
+  runtime = new RalfRuntime({ readings: flatReadings, intents: DEFAULT_SCORE.intents, mappings: DEFAULT_SCORE.mappings }, engine);
   lastFrameTime = null;
   _lastPct = -1;
   arc.onPhaseChange = handlePhaseChange;
@@ -105,7 +104,7 @@ function stopArc() {
   if (arcFadeTimeout) { clearTimeout(arcFadeTimeout); arcFadeTimeout = null; }
   engine.stop();
   arc = null;
-  triggerEngine.reset();
+  if (runtime) { runtime.reset(); runtime = null; }
   playing = false;
   if (indicator) { indicator.hide(); indicator = null; }
   directions.hide();
@@ -147,9 +146,7 @@ function detectLoop() {
       arc.update(dt, avgVel);
       const phase = arc.getCurrentPhase();
       if (phase) {
-        applyMapping(finalReadings, engine, phase.categories, DEFAULT_SCORE.mappings);
-        const actions = triggerEngine.update(finalReadings, phase.categories, dt);
-        if (actions.length > 0) applyTriggerActions(actions, engine, phase.categories);
+        if (runtime) runtime.update(finalReadings, phase.categories, dt);
         updatePhase(phase);
       }
       drawSkeletons(bodyCanvas, results.landmarks, bodyCount, finalReadings);
