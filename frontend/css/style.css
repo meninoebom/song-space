@@ -100,6 +100,36 @@ body {
   background: rgba(26, 26, 58, 0.7);
 }
 
+.song-card.loading {
+  border-color: rgba(255, 255, 255, 0.15);
+  opacity: 0.7;
+}
+
+.song-card.loading::after {
+  content: 'Loading...';
+  display: block;
+  font-size: 10px;
+  color: #888;
+  margin-top: 6px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.song-card.playing {
+  border-color: #8af;
+  background: rgba(26, 26, 58, 0.7);
+}
+
+.song-card.playing::after {
+  content: 'Playing';
+  display: block;
+  font-size: 10px;
+  color: #8af;
+  margin-top: 6px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
 .song-card h3 {
   font-size: 15px;
   font-weight: 500;
