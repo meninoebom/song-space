@@ -91,3 +91,8 @@
 **What went well:** Clean extraction, zero behavior change, verified with Node.js
 **What took longer than expected:** Nothing — straightforward data move
 **Would do differently:** Nothing for this issue. It's the right foundation.
+
+## 2026-03-06 - T3/T4/T5: Parallel implementation
+
+### Parallel agents sharing working directory is messy
+Agents that need separate branches should use `isolation: "worktree"`. Without it, both agents committed to whatever branch was checked out, mixing T3/T4/T5 commits on the same branch. Required manual cherry-picking to sort out. Next time: use worktrees for parallel branch work.

@@ -233,5 +233,19 @@ TriggerEngine is the only genuinely new module. ✓
 ### What to spike first
 If the trigger *feel* is uncertain, spike F3 with one hardcoded trigger before building the full declarative system. Validate the timing feels musical, then generalize.
 
+### Ralf Runtime Rework
+
+| Ticket | Issue | Status |
+|--------|-------|--------|
+| T1 | #23 | ✅ PR #27 merged |
+| T2 | #24 | ✅ PR #37 merged |
+| T3 | #25 | PR #39 |
+| T4 | #26 | PR #40 |
+| T5 | #28 | PR #41 |
+| T6 | #30 | Open |
+| T7 | #31 | Open |
+| T8 | #33 | Open |
+| T9 | #34 | Open |
+
 ## Next Step
-Run `/issues` to decompose into GitHub issues.
+Merge T3, T4, T5 PRs. Then T6 (unified Ralf runtime — the big one).
