@@ -41,6 +41,23 @@ The Replicate models (Demucs for stems, allin1 for song structure) are pre-train
 **Problem:** Some vocal loops started with a loud word fragment then were 90% dead air.
 **Solution:** If first 20% of a loop contains >75% of total energy, skip it.
 
+## Ralf Runtime Rework (2026-03-06)
+
+**Problem:** The original pipeline used three separate modules (mapping.js, trigger-engine.js, trigger-actions.js) with different calling conventions. This made the interaction model hard to reason about and didn't match Ralf's scene config schema.
+
+**Solution:** Unified `RalfRuntime` class implementing Ralf's Readings → Resolve → Draw → Act pipeline. Single `update(readings, phaseCategories, dt)` call per frame. Score config uses Ralf's schema: readings define body interpretations with intents (continuous or edge-triggered), intents map to weighted action pools, and `draw()` selects from pools with non-determinism.
+
+**Key design decisions:**
+- **Continuous intents use deterministic highest-weight** selection (not random draw) to avoid jarring per-frame changes in volume targets. Edge intents use weighted random draw for variety.
+- **Weighted volume blending** across multiple active continuous readings, proportional to reading value. Falls back to `quietVolumes` when nothing is active.
+- **Phase gating at -60dB** for categories not in the current arc phase — enforced in both continuous blending and edge action execution.
+- **`on_exit` intents** fire on falling edge of a reading — enables patterns like "coiled → explosive release" where tension builds then releases.
+- **Config validation warnings** in `_getPool` and `_act` catch typos in score config at runtime (console.warn, not throw).
+
+**What was removed:** mapping.js (70 lines), trigger-engine.js (119 lines), trigger-actions.js (48 lines) + their test files (354 lines) = 590 lines deleted. Replaced by runtime.js (229 lines) + runtime.test.js (438 lines).
+
+**app.js simplification:** Extracted detection loop and utilities. 479 → 219 → 146 lines across the rework. app.js is now pure wiring.
+
 ## What's Working Well (2026-02-27)
 
 - **Drums:** Consistently good output across sections. Energy-based groove/foundation categorization makes sense.
