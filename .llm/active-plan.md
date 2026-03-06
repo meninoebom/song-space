@@ -242,10 +242,10 @@ If the trigger *feel* is uncertain, spike F3 with one hardcoded trigger before b
 | T3 | #25 | PR #39 |
 | T4 | #26 | PR #40 |
 | T5 | #28 | PR #41 |
-| T6 | #30 | Open |
-| T7 | #31 | Open |
+| T6 | #30 | PR #42 |
+| T7 | #31 | ✅ PR #43 |
 | T8 | #33 | Open |
 | T9 | #34 | Open |
 
 ## Next Step
-Merge T3, T4, T5 PRs. Then T6 (unified Ralf runtime — the big one).
+Merge T6, T7 PRs. Then T8 (dead code cleanup) and T9 (integration test + tuning).

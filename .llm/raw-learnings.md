@@ -96,3 +96,11 @@
 
 ### Parallel agents sharing working directory is messy
 Agents that need separate branches should use `isolation: "worktree"`. Without it, both agents committed to whatever branch was checked out, mixing T3/T4/T5 commits on the same branch. Required manual cherry-picking to sort out. Next time: use worktrees for parallel branch work.
+
+## 2026-03-06 - T7: Expand readings
+
+### hipHeight quality doesn't exist — adapt issue specs to available qualities
+The issue spec referenced `hipHeight` for the grounded reading, but movement.js doesn't have that quality. Substituted with `legBend` (already inverted — high value = bent knees) + `contraction` + inverted `verticality`. Always verify quality names against `QUALITY_KEYS` in movement.js before writing reading configs.
+
+### on_exit pools with mixed action types create interesting non-determinism
+The `explosive_release` pool has restore (weight 3), oneshot (weight 2), and filter_sweep (weight 1). Each coiled→release exit randomly picks one, making repeat interactions feel different. This is a Ralf design pattern worth preserving — pools shouldn't be limited to variations of the same action type.
