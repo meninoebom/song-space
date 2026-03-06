@@ -12,7 +12,8 @@ import { applyTriggerActions } from './trigger-actions.js';
 import { CATEGORIES } from './constants.js';
 import { DEFAULT_SCORE } from './score.js';
 import { drawSkeletons } from './skeleton.js';
-import { updateDebug, bar } from './debug.js';
+import { updateDebug } from './debug.js';
+import { PhaseIndicator } from './phase-indicator.js';
 import { ReadingsMeter } from './readings-meter.js';
 import { StageDirections } from './stage-directions.js';
 import * as webcam from './webcam.js';
@@ -44,6 +45,7 @@ let arcFadeTimeout = null;
 let lastFrameTime = null;
 let playing = false;
 let _loadGeneration = 0;
+let indicator = null;
 
 const setStatus = msg => { if (status) status.textContent = msg; };
 
@@ -88,7 +90,11 @@ async function startArc() {
   arc.onPhaseChange = handlePhaseChange;
   arc.onComplete = handleArcComplete;
   for (const cat of CATEGORIES) engine.setCategoryVolume(cat, cat === 'texture' ? -12 : -60);
-  if (phaseEl) { phaseEl.style.display = 'block'; phaseEl.textContent = 'AWAIT — move to begin'; }
+  if (phaseEl) {
+    indicator = new PhaseIndicator(phaseEl, DEFAULT_SCORE.arc.phases);
+    indicator.update(0, 0);
+    indicator.show();
+  }
   directions.show(arc.getCurrentPhase());
   if (DEBUG) grid.setAvailableCategories(['texture']);
   playing = true;
@@ -101,7 +107,7 @@ function stopArc() {
   arc = null;
   triggerEngine.reset();
   playing = false;
-  if (phaseEl) phaseEl.style.display = 'none';
+  if (indicator) { indicator.hide(); indicator = null; }
   directions.hide();
 }
 
@@ -182,14 +188,14 @@ function handlePhaseChange(phase) {
   }
   setStatus(phase.id.toUpperCase());
   const current = arc.getCurrentPhase();
-  if (phaseEl) updatePhase(current);
+  updatePhase(current);
   directions.show(current);
   if (DEBUG) grid.setAvailableCategories(phase.categories);
 }
 
 function handleArcComplete() {
   setStatus('');
-  if (phaseEl) phaseEl.textContent = 'COMPLETE';
+  if (indicator) indicator.update(DEFAULT_SCORE.arc.phases.length, 0);
   directions.complete();
   const fadeDur = engine.getBarDuration() * 8;
   engine.fadeOutAll(fadeDur);
@@ -198,11 +204,11 @@ function handleArcComplete() {
 
 let _lastPct = -1;
 function updatePhase(phase) {
-  if (!phaseEl) return;
+  if (!indicator) return;
   const pct = Math.round(phase.progress * 100);
   if (pct === _lastPct) return;
   _lastPct = pct;
-  phaseEl.textContent = `${phase.id.toUpperCase()} ${bar(phase.progress, 20)} ${pct}%  (${phase.index + 1}/${phase.totalPhases})`;
+  indicator.update(phase.index, phase.progress);
   directions.update(phase.progress);
 }
 

@@ -60,6 +60,67 @@ body {
   letter-spacing: 1px;
 }
 
+/* Phase bar */
+.phase-bar {
+  min-width: 200px;
+}
+
+.phase-segments {
+  display: flex;
+  gap: 2px;
+  height: 6px;
+}
+
+.phase-segment {
+  position: relative;
+  border-radius: 3px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.phase-segment.past {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.phase-segment.current {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.phase-segment.future {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.phase-segment-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease-out;
+}
+
+.phase-segment.past .phase-segment-fill {
+  background: var(--color-primary);
+}
+
+.phase-segment.current .phase-segment-fill {
+  background: var(--color-primary);
+  box-shadow: 0 0 6px rgba(232, 192, 96, 0.5);
+}
+
+.phase-segment.future .phase-segment-fill {
+  background: transparent;
+}
+
+.phase-name {
+  margin-top: 6px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--color-primary);
+  text-align: center;
+}
+
 /* Readings meter — bottom */
 .overlay-bottom {
   bottom: 16px;
