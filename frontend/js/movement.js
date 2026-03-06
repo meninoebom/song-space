@@ -7,7 +7,9 @@
  *   // In detection loop:
  *   const qualities = detector.update(landmarks, timestamp);
  *   // qualities = { velocity, jerkiness, symmetry, coherence, contraction,
- *   //               verticality, ankleSpread, wristSpread } (all 0-1)
+ *   //               verticality, ankleSpread, wristSpread, armsRaised,
+ *   //               torsoTwist, headTilt, armAsymmetry, legBend,
+ *   //               movementScale } (all 0-1)
  */
 
 // --- One-Euro Filter (smooth noisy landmark coordinates) ---
@@ -76,6 +78,21 @@ function mean(arr) {
   return arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
 }
 
+function lineAngle(a, b) {
+  return Math.atan2(b.y - a.y, b.x - a.x);
+}
+
+function angleBetween(a, b, c) {
+  // Angle at point b formed by segments b→a and b→c
+  const ba = { x: a.x - b.x, y: a.y - b.y };
+  const bc = { x: c.x - b.x, y: c.y - b.y };
+  const dot = ba.x * bc.x + ba.y * bc.y;
+  const magBA = Math.sqrt(ba.x ** 2 + ba.y ** 2);
+  const magBC = Math.sqrt(bc.x ** 2 + bc.y ** 2);
+  if (magBA < 1e-6 || magBC < 1e-6) return Math.PI;
+  return Math.acos(Math.max(-1, Math.min(1, dot / (magBA * magBC))));
+}
+
 function jointVelocities(landmarks, prev, joints) {
   const vels = [];
   for (const idx of joints) {
@@ -112,6 +129,11 @@ export class MovementDetector {
       ankleSpread:   new AdaptiveRange(0, 0.2),
       wristSpread:   new AdaptiveRange(0, 0.3),
       armsRaised:    new AdaptiveRange(-0.1, 0.3),
+      torsoTwist:    new AdaptiveRange(0, 0.5),
+      headTilt:      new AdaptiveRange(0, 0.1),
+      armAsymmetry:  new AdaptiveRange(0, 0.3),
+      legBend:       new AdaptiveRange(0, Math.PI),
+      movementScale: new AdaptiveRange(0, 0.1),
     };
 
     // History buffers
@@ -153,7 +175,8 @@ export class MovementDetector {
     const out = {
       velocity: 0, jerkiness: 0, contraction: 0.5, verticality: 0.5,
       symmetry: 0.5, coherence: 0.5, ankleSpread: 0.5, wristSpread: 0.5,
-      armsRaised: 0, clap: 0, jump: 0,
+      armsRaised: 0, torsoTwist: 0, headTilt: 0, armAsymmetry: 0,
+      legBend: 0.5, movementScale: 0, clap: 0, jump: 0,
     };
 
     // === SHAPE PRIMITIVES ===
@@ -208,6 +231,56 @@ export class MovementDetector {
       const avgShoulderY = (lShoulder.y + rShoulder.y) / 2;
       const avgWristY = (lWrist.y + rWrist.y) / 2;
       out.armsRaised = this.ranges.armsRaised.normalize(avgShoulderY - avgWristY);
+    }
+
+    // Torso twist: angle between shoulder line and hip line
+    if (landmarks[11].visibility > 0.3 && landmarks[12].visibility > 0.3 &&
+        landmarks[23].visibility > 0.3 && landmarks[24].visibility > 0.3) {
+      const shoulderAngle = lineAngle(landmarks[11], landmarks[12]);
+      const hipAngle = lineAngle(landmarks[23], landmarks[24]);
+      out.torsoTwist = this.ranges.torsoTwist.normalize(Math.abs(shoulderAngle - hipAngle));
+    }
+
+    // Head tilt: nose X offset from shoulder midpoint
+    if (nose.visibility > 0.3 && landmarks[11].visibility > 0.3 && landmarks[12].visibility > 0.3) {
+      const shoulderMidX = (landmarks[11].x + landmarks[12].x) / 2;
+      out.headTilt = this.ranges.headTilt.normalize(Math.abs(nose.x - shoulderMidX));
+    }
+
+    // Arm asymmetry: difference in left vs right arm extension
+    if (landmarks[11].visibility > 0.3 && landmarks[13].visibility > 0.3 && landmarks[15].visibility > 0.3 &&
+        landmarks[12].visibility > 0.3 && landmarks[14].visibility > 0.3 && landmarks[16].visibility > 0.3) {
+      const leftExt = dist(landmarks[11], landmarks[13]) + dist(landmarks[13], landmarks[15]);
+      const rightExt = dist(landmarks[12], landmarks[14]) + dist(landmarks[14], landmarks[16]);
+      out.armAsymmetry = this.ranges.armAsymmetry.normalize(Math.abs(leftExt - rightExt));
+    }
+
+    // Leg bend: average knee angle (lower angle = more bent)
+    {
+      const kneeAngles = [];
+      if (landmarks[23].visibility > 0.3 && landmarks[25].visibility > 0.3 && landmarks[27].visibility > 0.3) {
+        kneeAngles.push(angleBetween(landmarks[23], landmarks[25], landmarks[27]));
+      }
+      if (landmarks[24].visibility > 0.3 && landmarks[26].visibility > 0.3 && landmarks[28].visibility > 0.3) {
+        kneeAngles.push(angleBetween(landmarks[24], landmarks[26], landmarks[28]));
+      }
+      if (kneeAngles.length > 0) {
+        // Invert: smaller angle (more bent) → higher value
+        out.legBend = 1 - this.ranges.legBend.normalize(mean(kneeAngles));
+      }
+    }
+
+    // Movement scale: bounding box area of visible extremities
+    {
+      const extremities = [0, 15, 16, 27, 28]
+        .filter(i => landmarks[i].visibility > 0.3)
+        .map(i => landmarks[i]);
+      if (extremities.length >= 2) {
+        const xs = extremities.map(p => p.x);
+        const ys = extremities.map(p => p.y);
+        const area = (Math.max(...xs) - Math.min(...xs)) * (Math.max(...ys) - Math.min(...ys));
+        out.movementScale = this.ranges.movementScale.normalize(area);
+      }
     }
 
     // Clap detection: wrist distance drops below threshold while velocity is high
@@ -317,7 +390,7 @@ export class MovementDetector {
 // --- Relational qualities (cross-body) ---
 // Ported from Ralf's relational.ts. Pure function, no state.
 
-const QUALITY_KEYS = ['velocity', 'jerkiness', 'symmetry', 'coherence', 'contraction', 'verticality', 'ankleSpread', 'wristSpread', 'armsRaised'];
+const QUALITY_KEYS = ['velocity', 'jerkiness', 'symmetry', 'coherence', 'contraction', 'verticality', 'ankleSpread', 'wristSpread', 'armsRaised', 'torsoTwist', 'headTilt', 'armAsymmetry', 'legBend', 'movementScale'];
 
 /**
  * Compute relational qualities between two bodies.
