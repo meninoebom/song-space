@@ -10,7 +10,7 @@ const POSE_CONNECTIONS = [
   [23, 25], [25, 27], [24, 26], [26, 28],
 ];
 
-const BODY_COLORS = ['#8af', '#fa8'];
+const BODY_COLORS = ['#e8c060', '#e06070'];
 const PADDING = 20;
 
 function toCanvas(lmX, lmY, W, H) {
@@ -36,8 +36,8 @@ export function drawSkeletons(canvas, allLandmarks, bodyCount, readingValues) {
   for (const r of readingValues) {
     if ((r.id === 'unison' || r.id === 'opposition') && r.active && r.value > 0.1) {
       ctx.fillStyle = r.id === 'unison'
-        ? `rgba(170, 255, 100, ${r.value * 0.15})`
-        : `rgba(255, 100, 170, ${r.value * 0.15})`;
+        ? `rgba(232, 192, 96, ${r.value * 0.12})`
+        : `rgba(224, 96, 112, ${r.value * 0.12})`;
       ctx.fillRect(0, 0, W, H);
     }
   }
