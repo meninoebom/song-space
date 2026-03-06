@@ -18,6 +18,7 @@ export class SongPicker {
 
     try {
       const res = await fetch(`${this.apiUrl}/api/library`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const catalog = await res.json();
 
       if (catalog.length === 0) {
@@ -29,20 +30,35 @@ export class SongPicker {
       for (const song of catalog) {
         const card = document.createElement('div');
         card.className = 'song-card';
-        card.innerHTML = `
-          <h3>${song.name}</h3>
-          <div class="song-meta">
-            <span>${song.bpm} BPM</span>
-            <span>${song.total_loops} loops</span>
-          </div>
-          <div class="song-sections">${song.sections.join(' · ')}</div>
-        `;
+
+        const h3 = document.createElement('h3');
+        h3.textContent = song.name;
+        card.appendChild(h3);
+
+        const meta = document.createElement('div');
+        meta.className = 'song-meta';
+        const bpmSpan = document.createElement('span');
+        bpmSpan.textContent = `${song.bpm} BPM`;
+        const loopSpan = document.createElement('span');
+        loopSpan.textContent = `${song.total_loops} loops`;
+        meta.append(bpmSpan, loopSpan);
+        card.appendChild(meta);
+
+        const sections = document.createElement('div');
+        sections.className = 'song-sections';
+        sections.textContent = song.sections.join(' \u00B7 ');
+        card.appendChild(sections);
+
         card.addEventListener('click', () => this._select(song.slug));
         this._cards.set(song.slug, card);
         this.container.appendChild(card);
       }
     } catch (err) {
-      this.container.innerHTML = `<p class="error">Failed to load songs: ${err.message}</p>`;
+      const errEl = document.createElement('p');
+      errEl.className = 'error';
+      errEl.textContent = `Failed to load songs: ${err.message}`;
+      this.container.innerHTML = '';
+      this.container.appendChild(errEl);
     }
   }
 
@@ -59,6 +75,7 @@ export class SongPicker {
 
     try {
       const res = await fetch(`${this.apiUrl}/api/library/${slug}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       // Check if a newer selection happened while we were fetching
       if (slug !== this._activeSlug) return;
       const metadata = await res.json();
