@@ -1,3 +1,11 @@
+:root {
+  --color-primary: #e8c060;
+  --color-accent: #e06070;
+  --color-dim-primary: #806030;
+  --color-dim-accent: #803040;
+  --glow-primary: rgba(232, 192, 96, 0.5);
+}
+
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
@@ -48,7 +56,7 @@ body {
   padding: 12px 20px;
   font-family: 'SF Mono', 'Fira Code', monospace;
   font-size: 13px;
-  color: #8af;
+  color: var(--color-primary);
   letter-spacing: 1px;
 }
 
@@ -96,7 +104,7 @@ body {
 }
 
 .song-card.selected {
-  border-color: #8af;
+  border-color: var(--color-primary);
   background: rgba(26, 26, 58, 0.7);
 }
 
@@ -116,7 +124,7 @@ body {
 }
 
 .song-card.playing {
-  border-color: #8af;
+  border-color: var(--color-primary);
   background: rgba(26, 26, 58, 0.7);
 }
 
@@ -124,7 +132,7 @@ body {
   content: 'Playing';
   display: block;
   font-size: 10px;
-  color: #8af;
+  color: var(--color-primary);
   margin-top: 6px;
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -163,7 +171,7 @@ body {
 }
 
 #play-btn {
-  background: #8af;
+  background: var(--color-primary);
   color: #0a0a0f;
   border: none;
   padding: 10px 32px;
@@ -208,19 +216,19 @@ body {
 
 .meter-fill {
   height: 100%;
-  background: #8af;
+  background: var(--color-primary);
   border-radius: 2px;
   transition: width 0.15s ease-out;
   opacity: 0.4;
 }
 
 .meter-bar.active .meter-label {
-  color: #8af;
+  color: var(--color-primary);
 }
 
 .meter-bar.active .meter-fill {
   opacity: 1;
-  box-shadow: 0 0 6px rgba(136, 170, 255, 0.5);
+  box-shadow: 0 0 6px var(--glow-primary);
 }
 
 /* Stage directions */
@@ -324,7 +332,7 @@ body.debug .debug-only {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: #8af;
+  background: var(--color-primary);
   transition: background 0.2s;
 }
 
@@ -381,7 +389,7 @@ body.debug .debug-only {
   font-family: 'SF Mono', 'Fira Code', monospace;
   font-size: 12px;
   line-height: 1.5;
-  color: #8af;
+  color: var(--color-primary);
   max-width: 360px;
   z-index: 100;
 }
