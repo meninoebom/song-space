@@ -43,6 +43,7 @@ let arc = null;
 let arcFadeTimeout = null;
 let lastFrameTime = null;
 let playing = false;
+let _loadGeneration = 0;
 
 const setStatus = msg => { if (status) status.textContent = msg; };
 
@@ -55,15 +56,26 @@ if (DEBUG) {
 
 picker.onSongSelected = async (metadata) => {
   if (playing) stopArc();
+  const gen = ++_loadGeneration;
   setStatus(`Loading ${metadata.name}...`);
   engine.onLoadProgress = (loaded, total) => setStatus(`Loading loops: ${loaded}/${total}`);
   try { await engine.load(metadata, API_URL); }
-  catch (err) { console.error('Failed to load song:', err); setStatus(`Failed to load ${metadata.name}: ${err.message}`); return; }
+  catch (err) { console.error('Failed to load song:', err); setStatus(`Failed to load ${metadata.name}: ${err.message}`); picker.clearState(); return; }
+  if (gen !== _loadGeneration) return;
   if (DEBUG) { grid.render(metadata); grid.onTrackToggle = (f, m) => engine.setTrackMuted(f, m); }
   try { await webcam.start(); } catch (err) { console.error('Webcam init:', err); }
-  try { await startArc(); } catch (err) { console.error('Audio start failed:', err); setStatus('Audio failed — try clicking the page and selecting again'); return; }
+  if (gen !== _loadGeneration) return;
+  try { await startArc(); } catch (err) { console.error('Audio start failed:', err); setStatus('Audio failed — try clicking the page and selecting again'); picker.clearState(); return; }
+  if (gen !== _loadGeneration) return;
+  picker.setPlaying(metadata.slug);
   if (webcam.isRunning()) detectLoop();
   else fallbackLoop();
+};
+
+picker.onSongStopped = () => {
+  if (playing) stopArc();
+  ++_loadGeneration;
+  setStatus('Select a song to begin');
 };
 
 async function startArc() {
@@ -181,7 +193,7 @@ function handleArcComplete() {
   directions.complete();
   const fadeDur = engine.getBarDuration() * 8;
   engine.fadeOutAll(fadeDur);
-  arcFadeTimeout = setTimeout(() => { arcFadeTimeout = null; stopArc(); setStatus('Select a song to go again'); }, fadeDur * 1000 + 500);
+  arcFadeTimeout = setTimeout(() => { arcFadeTimeout = null; stopArc(); picker.clearState(); setStatus('Select a song to go again'); }, fadeDur * 1000 + 500);
 }
 
 let _lastPct = -1;
