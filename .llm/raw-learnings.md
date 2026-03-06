@@ -104,3 +104,14 @@ The issue spec referenced `hipHeight` for the grounded reading, but movement.js 
 
 ### on_exit pools with mixed action types create interesting non-determinism
 The `explosive_release` pool has restore (weight 3), oneshot (weight 2), and filter_sweep (weight 1). Each coiled→release exit randomly picks one, making repeat interactions feel different. This is a Ralf design pattern worth preserving — pools shouldn't be limited to variations of the same action type.
+
+## 2026-03-06 - T9: Integration test + tuning
+
+### Score config validation catches typos before runtime
+376 assertions validate that all readings reference real qualities, all intents exist, action types are valid, and categories are consistent. This is the safety net for iterating on score.js — change a reading, run `node frontend/js/score.test.js`, catch mistakes instantly.
+
+### Continuous volume blending math has floating point drift
+Weighted average of dB values through the blending math produces results like -6.000000000000001 instead of -6. Tests need approximate comparison (`Math.abs(actual - expected) < 0.01`) not strict equality.
+
+### T8 issue spec was wrong about stage-directions.js
+Issue #33 listed stage-directions.js for deletion, but it's actively used (6 call sites in app.js). Always verify "dead code" claims by grepping for imports before deleting.

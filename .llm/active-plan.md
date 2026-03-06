@@ -244,8 +244,8 @@ If the trigger *feel* is uncertain, spike F3 with one hardcoded trigger before b
 | T5 | #28 | PR #41 |
 | T6 | #30 | PR #42 |
 | T7 | #31 | ✅ PR #43 |
-| T8 | #33 | Open |
-| T9 | #34 | Open |
+| T8 | #33 | ✅ PR #44 merged |
+| T9 | #34 | ✅ PR #45 |
 
 ## Next Step
-Merge T6, T7 PRs. Then T8 (dead code cleanup) and T9 (integration test + tuning).
+All Ralf runtime rework tickets complete. Manual score tuning with `make dev` is the remaining UX work (issue #18).
