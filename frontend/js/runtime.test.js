@@ -231,6 +231,152 @@ test('runtime: reset clears all state', () => {
 });
 
 // ============================================================
+// Continuous volume blending tests
+// ============================================================
+
+test('runtime: continuous intent sets blended volumes', () => {
+  const engine = mockEngine();
+  const score = {
+    readings: [
+      { id: 'flow', mix: {}, gate: {},
+        intents: [{ intent: 'flow_blend', mode: 'continuous' }] },
+    ],
+    intents: {
+      flow_blend: [{ action: 'set_volumes', args: { bass: -6, groove: -3 }, weight: 1 }],
+    },
+    mappings: { quietVolumes: { texture: -12, bass: -40, foundation: -40, harmonic_bed: -40, groove: -40, hook: -40, accent: -40 } },
+  };
+  const rt = new RalfRuntime(score, engine);
+  rt.update([{ id: 'flow', value: 0.8, active: true }], ALL_CATS);
+  const bassCalls = engine.calls.filter(c => c.fn === 'setCategoryVolume' && c.cat === 'bass');
+  const grooveCalls = engine.calls.filter(c => c.fn === 'setCategoryVolume' && c.cat === 'groove');
+  assert(bassCalls.length > 0, 'should set bass volume');
+  assert(Math.abs(bassCalls[bassCalls.length - 1].db - (-6)) < 0.01, `bass should be ~-6, got ${bassCalls[bassCalls.length - 1].db}`);
+  assert(Math.abs(grooveCalls[grooveCalls.length - 1].db - (-3)) < 0.01, `groove should be ~-3, got ${grooveCalls[grooveCalls.length - 1].db}`);
+});
+
+test('runtime: continuous intent uses quietVolumes when inactive', () => {
+  const engine = mockEngine();
+  const score = {
+    readings: [
+      { id: 'flow', mix: {}, gate: {},
+        intents: [{ intent: 'flow_blend', mode: 'continuous' }] },
+    ],
+    intents: {
+      flow_blend: [{ action: 'set_volumes', args: { bass: -6 }, weight: 1 }],
+    },
+    mappings: { quietVolumes: { texture: -12, bass: -40, foundation: -40, harmonic_bed: -40, groove: -40, hook: -40, accent: -40 } },
+  };
+  const rt = new RalfRuntime(score, engine);
+  rt.update([{ id: 'flow', value: 0, active: false }], ALL_CATS);
+  const bassCalls = engine.calls.filter(c => c.fn === 'setCategoryVolume' && c.cat === 'bass');
+  assert(bassCalls.length > 0, 'should set bass from quietVolumes');
+  assert(bassCalls[bassCalls.length - 1].db === -40, `bass should be -40 (quiet), got ${bassCalls[bassCalls.length - 1].db}`);
+});
+
+test('runtime: continuous intent phase-gates to -60dB', () => {
+  const engine = mockEngine();
+  const score = {
+    readings: [
+      { id: 'flow', mix: {}, gate: {},
+        intents: [{ intent: 'flow_blend', mode: 'continuous' }] },
+    ],
+    intents: {
+      flow_blend: [{ action: 'set_volumes', args: { bass: -6 }, weight: 1 }],
+    },
+    mappings: { quietVolumes: { texture: -12, bass: -40, foundation: -40, harmonic_bed: -40, groove: -40, hook: -40, accent: -40 } },
+  };
+  const rt = new RalfRuntime(score, engine);
+  rt.update([{ id: 'flow', value: 0.8, active: true }], ['texture']); // bass not in phase
+  const bassCalls = engine.calls.filter(c => c.fn === 'setCategoryVolume' && c.cat === 'bass');
+  assert(bassCalls[bassCalls.length - 1].db === -60, `bass should be -60 (phase-gated), got ${bassCalls[bassCalls.length - 1].db}`);
+});
+
+test('runtime: continuous intent below 0.05 threshold does not contribute', () => {
+  const engine = mockEngine();
+  const score = {
+    readings: [
+      { id: 'flow', mix: {}, gate: {},
+        intents: [{ intent: 'flow_blend', mode: 'continuous' }] },
+    ],
+    intents: {
+      flow_blend: [{ action: 'set_volumes', args: { bass: -6 }, weight: 1 }],
+    },
+    mappings: { quietVolumes: { texture: -12, bass: -40, foundation: -40, harmonic_bed: -40, groove: -40, hook: -40, accent: -40 } },
+  };
+  const rt = new RalfRuntime(score, engine);
+  rt.update([{ id: 'flow', value: 0.04, active: true }], ALL_CATS);
+  const bassCalls = engine.calls.filter(c => c.fn === 'setCategoryVolume' && c.cat === 'bass');
+  assert(bassCalls[bassCalls.length - 1].db === -40, `bass should be -40 (quiet, below threshold), got ${bassCalls[bassCalls.length - 1].db}`);
+});
+
+// ============================================================
+// Engine guard and action coverage
+// ============================================================
+
+test('runtime: engine.loaded=false skips all processing', () => {
+  const engine = mockEngine();
+  engine.loaded = false;
+  const score = {
+    readings: [
+      { id: 'test', mix: {}, gate: {},
+        intents: [{ intent: 'do_thing', mode: 'edge' }] },
+    ],
+    intents: {
+      do_thing: [{ action: 'mute', args: { categories: ['groove'] }, weight: 1 }],
+    },
+    mappings: null,
+  };
+  const rt = new RalfRuntime(score, engine);
+  rt.update([{ id: 'test', value: 0, active: false }], ALL_CATS);
+  rt.update([{ id: 'test', value: 0.8, active: true }], ALL_CATS);
+  const actionCalls = engine.calls.filter(c => c.fn !== 'muteCategory' || c.cat !== 'groove');
+  const muteCalls = engine.calls.filter(c => c.fn === 'muteCategory' && c.cat === 'groove');
+  assert(muteCalls.length === 0, 'should not fire any actions when engine not loaded');
+});
+
+test('runtime: solo action mutes non-solo categories', () => {
+  const engine = mockEngine();
+  const score = {
+    readings: [
+      { id: 'test', mix: {}, gate: {},
+        intents: [{ intent: 'solo_bass', mode: 'edge' }] },
+    ],
+    intents: {
+      solo_bass: [{ action: 'solo', args: { categories: ['bass'] }, weight: 1 }],
+    },
+    mappings: null,
+  };
+  const rt = new RalfRuntime(score, engine);
+  rt.update([{ id: 'test', value: 0, active: false }], ALL_CATS);
+  rt.update([{ id: 'test', value: 0.8, active: true }], ALL_CATS);
+  const mutes = engine.calls.filter(c => c.fn === 'muteCategory');
+  assert(mutes.length === ALL_CATS.length - 1, `should mute ${ALL_CATS.length - 1} categories, got ${mutes.length}`);
+  assert(!mutes.some(c => c.cat === 'bass'), 'should NOT mute bass (solo target)');
+});
+
+test('runtime: filter_sweep action calls sweepFilter', () => {
+  const engine = mockEngine();
+  const score = {
+    readings: [
+      { id: 'test', mix: {}, gate: {},
+        intents: [{ intent: 'sweep', mode: 'edge' }] },
+    ],
+    intents: {
+      sweep: [{ action: 'filter_sweep', args: { category: 'bass', from: 200, to: 2000, duration: 1.5 }, weight: 1 }],
+    },
+    mappings: null,
+  };
+  const rt = new RalfRuntime(score, engine);
+  rt.update([{ id: 'test', value: 0, active: false }], ALL_CATS);
+  rt.update([{ id: 'test', value: 0.8, active: true }], ALL_CATS);
+  const sweeps = engine.calls.filter(c => c.fn === 'sweepFilter');
+  assert(sweeps.length === 1, `should call sweepFilter once, got ${sweeps.length}`);
+  assert(sweeps[0].cat === 'bass', 'should sweep bass');
+  assert(sweeps[0].from === 200 && sweeps[0].to === 2000, 'should pass correct freq range');
+});
+
+// ============================================================
 // Score integration: new readings from T7
 // ============================================================
 

@@ -109,18 +109,10 @@ export class RalfRuntime {
 
     // Apply blended continuous volumes
     if (quietVolumes) {
-      const targetVol = { ...quietVolumes };
-      if (totalWeight > 0) {
-        for (const cat of CATEGORIES) {
-          targetVol[cat] = contributions[cat] / totalWeight;
-        }
-      }
-      // Phase-gate
       for (const cat of CATEGORIES) {
-        if (!phaseCategories.includes(cat)) targetVol[cat] = -60;
-      }
-      for (const cat of CATEGORIES) {
-        this.engine.setCategoryVolume(cat, targetVol[cat]);
+        let vol = totalWeight > 0 ? contributions[cat] / totalWeight : quietVolumes[cat];
+        if (!phaseCategories.includes(cat)) vol = -60;
+        this.engine.setCategoryVolume(cat, vol);
       }
     }
   }
@@ -163,7 +155,10 @@ export class RalfRuntime {
 
   _getPool(intentName) {
     const entry = this.score.intents[intentName];
-    if (!entry) return null;
+    if (!entry) {
+      console.warn(`[RalfRuntime] Intent "${intentName}" not found in score.intents`);
+      return null;
+    }
     return Array.isArray(entry) ? entry : entry.pool;
   }
 
@@ -220,6 +215,9 @@ export class RalfRuntime {
           this.engine.sweepFilter(option.args.category, option.args.from, option.args.to, option.args.duration);
         }
         break;
+
+      default:
+        console.warn(`[RalfRuntime] Unknown action type: "${option.action}"`);
     }
   }
 

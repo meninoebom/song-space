@@ -63,7 +63,7 @@ picker.onSongSelected = async (metadata) => {
   catch (err) { console.error('Failed to load song:', err); setStatus(`Failed to load ${metadata.name}: ${err.message}`); picker.clearState(); return; }
   if (gen !== _loadGeneration) return;
   if (DEBUG) { grid.render(metadata); grid.onTrackToggle = (f, m) => engine.setTrackMuted(f, m); }
-  try { await webcam.start(); } catch (err) { console.error('Webcam init:', err); }
+  try { await webcam.start(); } catch (err) { console.error('Webcam init:', err); setStatus('Camera unavailable — music will play automatically'); }
   if (gen !== _loadGeneration) return;
   try { await startArc(); } catch (err) { console.error('Audio start failed:', err); setStatus('Audio failed — try clicking the page and selecting again'); picker.clearState(); return; }
   if (gen !== _loadGeneration) return;
