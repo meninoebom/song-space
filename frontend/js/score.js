@@ -178,8 +178,8 @@ export const DEFAULT_SCORE = {
 
     // Stillness edges: progressive stripping
     drums_drop: [
-      { action: 'mute', args: { categories: ['groove'], rampTime: 0.3 }, weight: 3 },
-      { action: 'mute', args: { categories: ['groove', 'foundation'], rampTime: 0.4 }, weight: 1 },
+      { action: 'mute', args: { categories: ['groove', 'bass'], rampTime: 0.3 }, weight: 3 },
+      { action: 'mute', args: { categories: ['groove', 'bass', 'foundation'], rampTime: 0.4 }, weight: 1 },
     ],
     strip_down: [
       { action: 'solo', args: { categories: ['texture'], rampTime: 0.5 }, weight: 3 },
