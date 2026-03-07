@@ -42,7 +42,7 @@ export const DEFAULT_SCORE = {
   // --- Readings: body interpretation → intents ---
   //
   // 6 core readings, each a distinct body state with clear musical meaning.
-  // Every cut reading (swaying, agitated, reaching, coiled, jumping, clapping)
+  // Every cut reading (swaying, agitated, reaching, coiled, jumping)
   // is expressible from the same primitives — a Ralf agent can recreate any
   // of them by recombining qualities, gates, and intents.
 
@@ -90,8 +90,8 @@ export const DEFAULT_SCORE = {
       // Harmonic layers bloom, groove recedes. Rewards sustained grace.
       {
         id: 'flowing',
-        mix: { coherence: 0.5, symmetry: 0.3, velocity: 0.2 },
-        gate: { velocity: { above: 0.15 }, jerkiness: { below: 0.5 } },
+        mix: { coherence: 0.6, velocity: 0.4 },
+        gate: { velocity: { above: 0.15 }, coherence: { above: 0.4 } },
         intents: [{ intent: 'flowing_blend', mode: 'continuous' }],
       },
 
@@ -109,7 +109,7 @@ export const DEFAULT_SCORE = {
       // Accent slam + filter sweep. Rewards dramatic shifts.
       {
         id: 'explosive',
-        mix: { velocity: 0.4, jerkiness: 0.3, movementScale: 0.3 },
+        mix: { velocity: 0.4, impulse: 0.6 },
         gate: { velocity: { above: 0.6 } },
         intents: [{ intent: 'explosive_slam', mode: 'edge' }],
       },

@@ -21,10 +21,9 @@ function test(name, fn) {
 
 // Known body qualities from movement.js
 const VALID_QUALITIES = [
-  'velocity', 'jerkiness', 'symmetry', 'coherence', 'contraction',
-  'verticality', 'ankleSpread', 'wristSpread', 'armsRaised',
-  'torsoTwist', 'headTilt', 'armAsymmetry', 'legBend', 'movementScale',
-  'clap', 'jump',
+  'velocity', 'impulse', 'coherence', 'contraction',
+  'verticality', 'wristSpread', 'armsRaised', 'legBend',
+  'headTilt', 'jump',
 ];
 
 // Known relational qualities from movement.js computeRelational

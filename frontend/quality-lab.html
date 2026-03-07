@@ -70,28 +70,23 @@
 
     // Quality metadata: type + description
     const QUALITY_META = {
-      velocity:      { type: 'temporal', desc: 'overall movement speed' },
-      jerkiness:     { type: 'temporal', desc: 'erratic acceleration changes' },
-      coherence:     { type: 'temporal', desc: 'left/right sides moving together' },
-      symmetry:      { type: 'spatial',  desc: 'left/right velocity balance' },
-      contraction:   { type: 'spatial',  desc: 'body compactness (hands near hips)' },
+      velocity:      { type: 'temporal', desc: 'overall movement speed (scale-normalized)' },
+      impulse:       { type: 'temporal', desc: 'sudden velocity burst — spike and decay' },
+      coherence:     { type: 'temporal', desc: 'left/right sides moving together (gated on velocity)' },
+      contraction:   { type: 'spatial',  desc: 'all extremities near body center (hands + feet)' },
       verticality:   { type: 'spatial',  desc: 'upright posture (head above hips)' },
       wristSpread:   { type: 'spatial',  desc: 'arm extension (hands far from center)' },
       armsRaised:    { type: 'spatial',  desc: 'hands above shoulders' },
       legBend:       { type: 'spatial',  desc: 'knee bend angle' },
-      torsoTwist:    { type: 'spatial',  desc: 'upper body rotation' },
       headTilt:      { type: 'spatial',  desc: 'head angle from vertical' },
-      armAsymmetry:  { type: 'spatial',  desc: 'difference in arm positions' },
-      movementScale: { type: 'temporal', desc: 'size of movement in space' },
-      clap:          { type: 'impulse',  desc: 'hands coming together fast' },
       jump:          { type: 'impulse',  desc: 'vertical launch detected' },
     };
 
     // Group by type for display order
     const GROUPS = [
-      { label: 'Temporal — how you move over time', keys: ['velocity', 'jerkiness', 'coherence', 'movementScale'] },
-      { label: 'Spatial — your body shape right now', keys: ['contraction', 'verticality', 'wristSpread', 'armsRaised', 'legBend', 'symmetry', 'torsoTwist', 'headTilt', 'armAsymmetry'] },
-      { label: 'Impulse — momentary events', keys: ['clap', 'jump'] },
+      { label: 'Temporal — how you move over time', keys: ['velocity', 'impulse', 'coherence'] },
+      { label: 'Spatial — your body shape right now', keys: ['contraction', 'verticality', 'wristSpread', 'armsRaised', 'legBend', 'headTilt'] },
+      { label: 'Impulse — momentary events', keys: ['jump'] },
     ];
 
     // Build DOM

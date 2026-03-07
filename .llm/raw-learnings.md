@@ -132,3 +132,26 @@ Going from 11→6 readings eliminated muddy competing activations. Each reading 
 
 ### Qualities are the real foundation
 Getting body qualities right (reliable, meaningful, distinct) matters more than clever score config. The score is only as good as the qualities it reads. Next step: audit qualities for reliability and perceptual distinctness. Consider building a quality visualizer/tester.
+
+## 2026-03-07 - Quality refinement: iterative dance testing
+
+### AdaptiveRange min-pinning for qualities with absolute zero
+When standing still, velocity values are near-zero. AdaptiveRange contracts min/max toward midpoint until `range < 0.0001`, then returns 0.5 ("I don't know"). Fix: pin `this.ranges.velocity.min = 0` after each normalize call. Zero velocity IS the absolute minimum. Same fix needed for coherence variance. Any quality with a true floor should pin its min.
+
+### Stillness is a reading, not a quality
+Tried making stillness a quality (1 - velocity). It's redundant — readings already handle this with gates (`velocity: { below: 0.12 }`). Lesson: if a "quality" is just an interpretation of another quality through a threshold, it belongs in the reading layer, not the quality layer.
+
+### Coherence needs torso-normalized velocity diffs
+Left/right velocity differences were in raw pixel space while velocity was torso-normalized. The raw diffs were tiny → AdaptiveRange couldn't distinguish them → coherence stuck at 0.5. Fix: normalize left/right velocities by torsoLength, same as frameVel. Also gate coherence on `out.velocity > 0.05` (normalized) — coherence is meaningless when still.
+
+### Impulse = rising edge detection (Schmitt trigger), not sustained-high detection
+First attempt: `|frameVel - rollingMean|` — mean chases signal → repeated triggers ("da da da da"). Second attempt: spike-and-decay with cooldown — still pulses because velocity delta persists across frames. Working solution: Schmitt trigger with two thresholds. Fire when normalized velocity crosses above 0.4, re-arm only when it drops below 0.15. One clean spike per burst. Pattern from audio onset detection (librosa peak_pick) and biomechanics movement onset literature.
+
+### Contraction enriched: all 4 extremities from body center
+Original contraction only used wrist-to-hip distance. Enriched to mean distance of wrists + ankles from body center (mean of shoulders + hips). Captures full expansion/contraction — crouched ball vs spread-eagle. Dance-tested as "really really good."
+
+### Spatial qualities are inherently reliable; temporal qualities need careful engineering
+Angle/ratio-based spatial qualities (armsRaised, legBend, headTilt, wristSpread) work immediately because they're scale-independent. Velocity-based temporal qualities broke in multiple ways: pixel-scale dependence, AdaptiveRange drift, rolling-mean chasing. Each required a specific fix (torso normalization, min-pinning, Schmitt trigger). Budget more time for temporal quality engineering.
+
+### Quality inventory: 18 → 10 through dance testing
+Started with 18 qualities. Removed 8 that didn't work or weren't meaningful (torsoTwist, jerkiness, movementScale, symmetry, armAsymmetry, elbowBend, hipSway, clap, stillness). Final 10: velocity, impulse, coherence, contraction, verticality, wristSpread, armsRaised, legBend, headTilt, jump. Each confirmed meaningful through Quality Lab testing.
