@@ -115,3 +115,20 @@ Weighted average of dB values through the blending math produces results like -6
 
 ### T8 issue spec was wrong about stage-directions.js
 Issue #33 listed stage-directions.js for deletion, but it's actively used (6 call sites in app.js). Always verify "dead code" claims by grepping for imports before deleting.
+
+## 2026-03-07 - Simplified score: first dance test
+
+### Energy→volume is the most important primitive
+The `energy` reading (velocity → overall volume, always active, no gate) makes the most fundamental connection feel immediate: move = hear more. This single reading does more for emotional salience than 11 overlapping readings did before. Lesson: one obvious, reliable mapping beats many subtle ones.
+
+### Flowing→synths landed as "meaningful"
+Smooth coherent movement causing harmonic layers to bloom felt poetic and discoverable — exactly the target. The gate conditions (velocity > 0.15, jerkiness < 0.5) are working as intended to separate "flowing" from "just moving."
+
+### Stillness drop needs faster bass exit
+The current drums_drop at 2s works but bass lingers too long. Consider: bass should drop with groove (or shortly after), not persist through the strip-down. Could add bass to the drums_drop mute categories, or add a separate bass_drop edge at ~3s.
+
+### Fewer readings = clearer interactions
+Going from 11→6 readings eliminated muddy competing activations. Each reading now has perceptual space to be felt distinctly. The "cut readings are still expressible as primitives" framing is correct — simplifying the default scene improved it.
+
+### Qualities are the real foundation
+Getting body qualities right (reliable, meaningful, distinct) matters more than clever score config. The score is only as good as the qualities it reads. Next step: audit qualities for reliability and perceptual distinctness. Consider building a quality visualizer/tester.
