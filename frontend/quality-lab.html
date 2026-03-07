@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quality Lab — Song Space</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #111; color: #eee; font-family: 'SF Mono', 'Fira Code', monospace; overflow: hidden; }
+
+    .layout { display: flex; height: 100vh; }
+    .video-side { flex: 1; position: relative; background: #000; }
+    .video-side canvas { width: 100%; height: 100%; object-fit: contain; }
+    .panel-side { width: 420px; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 4px; }
+
+    h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: #888; margin: 12px 0 6px; }
+    h2:first-child { margin-top: 0; }
+
+    .quality-row { display: flex; align-items: center; gap: 8px; height: 22px; }
+    .quality-name { font-size: 11px; width: 110px; text-align: right; color: #999; flex-shrink: 0; }
+    .quality-track { flex: 1; height: 14px; background: #222; border-radius: 3px; overflow: hidden; position: relative; }
+    .quality-fill { height: 100%; border-radius: 3px; transition: width 0.05s linear; min-width: 1px; }
+    .quality-value { font-size: 10px; width: 36px; text-align: right; color: #666; flex-shrink: 0; }
+
+    /* Color coding by type */
+    .type-temporal .quality-fill { background: #4a9eff; }
+    .type-spatial .quality-fill { background: #ff9f43; }
+    .type-impulse .quality-fill { background: #ee5a6f; }
+
+    .legend { display: flex; gap: 16px; padding: 8px 0 4px; }
+    .legend-item { font-size: 10px; display: flex; align-items: center; gap: 4px; color: #888; }
+    .legend-dot { width: 8px; height: 8px; border-radius: 2px; }
+    .legend-dot.temporal { background: #4a9eff; }
+    .legend-dot.spatial { background: #ff9f43; }
+    .legend-dot.impulse { background: #ee5a6f; }
+
+    .status-msg { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; color: #666; text-align: center; }
+
+    video { display: none; }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <div class="video-side">
+      <canvas id="lab-canvas"></canvas>
+      <div class="status-msg" id="status">Starting webcam...</div>
+    </div>
+    <div class="panel-side" id="panel">
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot temporal"></div> temporal (over time)</div>
+        <div class="legend-item"><div class="legend-dot spatial"></div> spatial (body shape)</div>
+        <div class="legend-item"><div class="legend-dot impulse"></div> impulse (event)</div>
+      </div>
+    </div>
+  </div>
+  <video id="webcam-video" playsinline></video>
+
+  <script type="module">
+    import { MovementDetector } from './js/movement.js';
+    import * as webcam from './js/webcam.js';
+
+    const canvas = document.getElementById('lab-canvas');
+    const ctx = canvas.getContext('2d');
+    const panel = document.getElementById('panel');
+    const statusEl = document.getElementById('status');
+    const video = document.getElementById('webcam-video');
+
+    const detector = new MovementDetector();
+    const bars = {};
+
+    // Quality metadata: type + description
+    const QUALITY_META = {
+      velocity:      { type: 'temporal', desc: 'overall movement speed' },
+      jerkiness:     { type: 'temporal', desc: 'erratic acceleration changes' },
+      coherence:     { type: 'temporal', desc: 'left/right sides moving together' },
+      symmetry:      { type: 'spatial',  desc: 'left/right velocity balance' },
+      contraction:   { type: 'spatial',  desc: 'body compactness (hands near hips)' },
+      verticality:   { type: 'spatial',  desc: 'upright posture (head above hips)' },
+      wristSpread:   { type: 'spatial',  desc: 'arm extension (hands far from center)' },
+      armsRaised:    { type: 'spatial',  desc: 'hands above shoulders' },
+      legBend:       { type: 'spatial',  desc: 'knee bend angle' },
+      torsoTwist:    { type: 'spatial',  desc: 'upper body rotation' },
+      headTilt:      { type: 'spatial',  desc: 'head angle from vertical' },
+      armAsymmetry:  { type: 'spatial',  desc: 'difference in arm positions' },
+      movementScale: { type: 'temporal', desc: 'size of movement in space' },
+      clap:          { type: 'impulse',  desc: 'hands coming together fast' },
+      jump:          { type: 'impulse',  desc: 'vertical launch detected' },
+    };
+
+    // Group by type for display order
+    const GROUPS = [
+      { label: 'Temporal — how you move over time', keys: ['velocity', 'jerkiness', 'coherence', 'movementScale'] },
+      { label: 'Spatial — your body shape right now', keys: ['contraction', 'verticality', 'wristSpread', 'armsRaised', 'legBend', 'symmetry', 'torsoTwist', 'headTilt', 'armAsymmetry'] },
+      { label: 'Impulse — momentary events', keys: ['clap', 'jump'] },
+    ];
+
+    // Build DOM
+    for (const group of GROUPS) {
+      const h2 = document.createElement('h2');
+      h2.textContent = group.label;
+      panel.appendChild(h2);
+
+      for (const key of group.keys) {
+        const meta = QUALITY_META[key];
+        const row = document.createElement('div');
+        row.className = `quality-row type-${meta.type}`;
+        row.title = meta.desc;
+
+        const name = document.createElement('div');
+        name.className = 'quality-name';
+        name.textContent = key;
+
+        const track = document.createElement('div');
+        track.className = 'quality-track';
+
+        const fill = document.createElement('div');
+        fill.className = 'quality-fill';
+        fill.style.width = '0%';
+
+        const val = document.createElement('div');
+        val.className = 'quality-value';
+        val.textContent = '0.00';
+
+        track.appendChild(fill);
+        row.appendChild(name);
+        row.appendChild(track);
+        row.appendChild(val);
+        panel.appendChild(row);
+
+        bars[key] = { fill, val };
+      }
+    }
+
+    // Draw mirrored video + skeleton on canvas
+    function drawFrame(landmarks) {
+      canvas.width = video.videoWidth || 640;
+      canvas.height = video.videoHeight || 480;
+      ctx.save();
+      ctx.scale(-1, 1);
+      ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
+      ctx.restore();
+
+      if (landmarks && landmarks.length > 0) {
+        for (const body of landmarks) {
+          ctx.fillStyle = 'rgba(74, 158, 255, 0.6)';
+          for (const lm of body) {
+            const x = (1 - lm.x) * canvas.width;
+            const y = lm.y * canvas.height;
+            ctx.beginPath();
+            ctx.arc(x, y, 3, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+      }
+    }
+
+    // Detection loop
+    function loop() {
+      const results = webcam.detect();
+      const ts = performance.now() / 1000;
+
+      if (results && results.landmarks && results.landmarks.length > 0) {
+        statusEl.style.display = 'none';
+        const qualities = detector.update(results.landmarks[0], ts);
+
+        for (const [key, bar] of Object.entries(bars)) {
+          const v = qualities[key] ?? 0;
+          bar.fill.style.width = `${(v * 100).toFixed(1)}%`;
+          bar.val.textContent = v.toFixed(2);
+        }
+
+        drawFrame(results.landmarks);
+      } else {
+        drawFrame(null);
+      }
+
+      if (webcam.isRunning()) requestAnimationFrame(loop);
+    }
+
+    // Start
+    try {
+      await webcam.start();
+      statusEl.textContent = 'Move around to see your qualities';
+      loop();
+    } catch (err) {
+      statusEl.textContent = `Camera unavailable: ${err.message}`;
+    }
+  </script>
+</body>
+</html>
