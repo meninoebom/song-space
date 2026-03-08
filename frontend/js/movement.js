@@ -1,6 +1,15 @@
 /**
- * Movement detection — extracts body qualities from MediaPipe Pose landmarks.
- * Movement analysis engine — MediaPipe landmarks to body qualities.
+ * INPUT ADAPTER: MediaPipe Pose → Qualities
+ *
+ * This is the MediaPipe implementation of the input adapter contract
+ * (see QUALITY_KEYS in constants.js, docs/solutions/adapter-architecture.md).
+ *
+ * Takes raw MediaPipe Pose landmarks (33 points, 2D normalized coordinates)
+ * and produces the standard qualities object — 10 named 0-1 floats that
+ * the brain (ReadingsEngine + RalfRuntime) consumes.
+ *
+ * A different input adapter (Kinect, body suit, LiDAR) would implement
+ * the same output shape using different sensor data and computation.
  *
  * Usage:
  *   const detector = new MovementDetector();
@@ -10,6 +19,8 @@
  *   //               verticality, wristSpread, armsRaised, legBend,
  *   //               headTilt, jump } (all 0-1)
  */
+
+import { QUALITY_KEYS } from './constants.js';
 
 // --- One-Euro Filter (smooth noisy landmark coordinates) ---
 
@@ -315,7 +326,8 @@ export class MovementDetector {
 // --- Relational qualities (cross-body) ---
 // Ported from Ralf's relational.ts. Pure function, no state.
 
-const QUALITY_KEYS = ['velocity', 'impulse', 'coherence', 'contraction', 'verticality', 'wristSpread', 'armsRaised', 'legBend', 'headTilt'];
+// Used for relational computation — excludes 'jump' (impulse event, not continuous shape)
+const RELATIONAL_KEYS = QUALITY_KEYS.filter(k => k !== 'jump');
 
 /**
  * Compute relational qualities between two bodies.
@@ -334,11 +346,11 @@ export function computeRelational(q1, q2, det1, det2) {
   // Contrast: L2 distance of quality vectors, normalized to 0-1
   // Max possible L2 distance for N dimensions of [0,1] values = sqrt(N)
   let sumSq = 0;
-  for (const k of QUALITY_KEYS) {
+  for (const k of RELATIONAL_KEYS) {
     const d = (q1[k] ?? 0) - (q2[k] ?? 0);
     sumSq += d * d;
   }
-  const maxDist = Math.sqrt(QUALITY_KEYS.length);
+  const maxDist = Math.sqrt(RELATIONAL_KEYS.length);
   const contrast = Math.sqrt(sumSq) / maxDist;
 
   // Aggregate energy: mean velocity across both bodies

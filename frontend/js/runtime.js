@@ -1,12 +1,29 @@
 /**
- * Unified Ralf runtime — replaces mapping.js + trigger-engine.js + trigger-actions.js.
+ * Unified Ralf runtime — the "brain" of the adapter architecture.
  *
- * Implements Ralf's pipeline: Readings → Resolve → Draw → Act
+ * Pipeline: Readings → Resolve → Draw → Act
  * Using the same config schema as Ralf's Scene.
+ *
+ * This module is OUTPUT-AGNOSTIC. It resolves readings into action commands
+ * (see ACTION_TYPES in constants.js) and hands them to an output adapter
+ * for execution. The output adapter is injected via constructor — today
+ * it's AudioEngine (Tone.js), but could be an OSC sender, MIDI output,
+ * or live score renderer.
+ *
+ * Output adapter interface — any adapter must implement:
+ *   setCategoryVolume(category, dB)
+ *   muteCategory(category, rampTime)
+ *   restoreCategory(category, rampTime)
+ *   isTriggerMuted(category) → boolean
+ *   triggerOneshot(category, volumeDb)
+ *   sweepFilter(category, fromHz, toHz, durationSeconds)
+ *   loaded → boolean
  *
  * "Draw" is Ralf's term for weighted random selection from an intent pool.
  * Like drawing from a deck — weights stack the deck, but which card
  * you draw still varies.
+ *
+ * See docs/solutions/adapter-architecture.md for the full design.
  */
 
 import { CATEGORIES } from './constants.js';

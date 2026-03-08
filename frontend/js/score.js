@@ -15,6 +15,18 @@
  * eventually compose through conversation. Every primitive here —
  * readings, intents, pools, gates, edges — is Ralf's vocabulary for
  * expressing movement-music interactions.
+ *
+ * The score is ADAPTER-AGNOSTIC. It references qualities by name
+ * (see QUALITY_KEYS in constants.js) and emits actions by type
+ * (see ACTION_TYPES in constants.js). It works identically regardless
+ * of which input sensor produces the qualities or which output system
+ * executes the actions. See docs/solutions/adapter-architecture.md.
+ *
+ * Reading behavior patterns (config fields):
+ *   - Instantaneous (default): value snaps to mix when gate opens
+ *   - Accumulating (rampSeconds: N): value grows over N seconds
+ *   - Edge-triggered (intents with after: N): fires action after N seconds
+ *   These compose freely on a single reading.
  */
 
 export const DEFAULT_SCORE = {

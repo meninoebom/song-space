@@ -4,7 +4,7 @@
  */
 
 import { DEFAULT_SCORE } from './score.js';
-import { CATEGORIES } from './constants.js';
+import { CATEGORIES, QUALITY_KEYS, ACTION_TYPES } from './constants.js';
 
 let passed = 0;
 let failed = 0;
@@ -19,12 +19,8 @@ function test(name, fn) {
   fn();
 }
 
-// Known body qualities from movement.js
-const VALID_QUALITIES = [
-  'velocity', 'impulse', 'coherence', 'contraction',
-  'verticality', 'wristSpread', 'armsRaised', 'legBend',
-  'headTilt', 'jump',
-];
+// Body qualities — canonical list from constants.js (the input contract)
+const VALID_QUALITIES = QUALITY_KEYS;
 
 // Known relational qualities from movement.js computeRelational
 const VALID_RELATIONAL = ['synchrony', 'contrast', 'aggregate_energy', 'proximity'];
@@ -128,7 +124,7 @@ test('intents: all reading intents exist in intent pools', () => {
 });
 
 test('intents: all intent pools have valid action types', () => {
-  const validActions = ['set_volumes', 'mute', 'solo', 'restore', 'oneshot', 'filter_sweep'];
+  const validActions = ACTION_TYPES;
   for (const [name, pool] of Object.entries(DEFAULT_SCORE.intents)) {
     const options = Array.isArray(pool) ? pool : pool.pool;
     for (const opt of options) {
