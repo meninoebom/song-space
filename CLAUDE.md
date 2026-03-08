@@ -63,6 +63,22 @@ A **score** is the complete definition of an interactive musical experience. It 
 
 This framework is designed to transfer into Ralf's scene system. The arc is the new concept Ralf doesn't have yet — temporal composition on top of reactive interaction.
 
+### Reading Behavior Patterns
+
+Readings support three composable temporal behaviors — Ralf's vocabulary for expressing how body states shape music over time:
+
+| Pattern | Config | Behavior | Good for |
+|---------|--------|----------|----------|
+| **Instantaneous** | (default) | Value snaps to weighted mix when gate opens | Reactive states: energy, arms_up, wide, compact |
+| **Accumulating** | `rampSeconds: N` | Value grows 0→full over N seconds, resets on gate close | States where time deepens meaning: stillness (3s), suspended (2s), melting (4s) |
+| **Edge-triggered** | `intents: [{ after: N }]` | Fires one-time action after sustained activation | Dramatic moments: drums_drop (2s), strip_down (5s) |
+
+These compose freely: stillness is both accumulating AND edge-triggered. Implemented in `frontend/js/readings.js` via `activeTime` tracking per reading.
+
+### AdaptiveRange Pinning
+
+Qualities with absolute bounds (velocity min=0, coherence min=0) need their AdaptiveRange pinned to prevent decay-driven collapse. Pin both before AND after normalize. The max floor must satisfy: `noise_floor / max_pin < gate_threshold - HYSTERESIS_BAND`. For velocity: `0.002 / 0.05 = 0.04 < 0.07`.
+
 ### Song Spaces (Library)
 
 Pre-processed curated songs live in `library/`. Each song space has a `metadata.json` and `loops/` directory with MP3 files.

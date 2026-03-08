@@ -155,3 +155,37 @@ Angle/ratio-based spatial qualities (armsRaised, legBend, headTilt, wristSpread)
 
 ### Quality inventory: 18 → 10 through dance testing
 Started with 18 qualities. Removed 8 that didn't work or weren't meaningful (torsoTwist, jerkiness, movementScale, symmetry, armAsymmetry, elbowBend, hipSway, clap, stillness). Final 10: velocity, impulse, coherence, contraction, verticality, wristSpread, armsRaised, legBend, headTilt, jump. Each confirmed meaningful through Quality Lab testing.
+
+## 2026-03-07 - Velocity max pin + accumulating readings
+
+### AdaptiveRange max-pinning: floor must account for jitter AND hysteresis
+Three iterations to get the velocity max pin right:
+- **0.001**: Landmark jitter (~0.0005) is comparable to range → chaotic normalization (0.3-0.8 when still). Broken.
+- **0.01**: Jitter normalizes to ~0.2, which is above the hysteresis activation threshold (gate `below: 0.12` minus `HYSTERESIS_BAND: 0.05` = 0.07). Works once, then fails after movement expands the range and decay brings it back to the pin floor.
+- **0.05**: Jitter normalizes to ~0.04, safely below 0.07. Works reliably across move→still→move→still cycles.
+
+**The formula**: `max_floor > jitter / (gate_threshold - HYSTERESIS_BAND)`. For stillness: `0.002 / 0.07 = 0.029`, so 0.05 gives comfortable margin. Pin both before AND after normalize — before so the current frame uses a healthy range, after so decay doesn't collapse it before next frame.
+
+**Generalizable rule**: When pinning AdaptiveRange floors, the pin value must be well above the signal's noise floor, AND the resulting normalized noise must be below any gate threshold minus its hysteresis band. Calculate both constraints.
+
+### Three reading behavior patterns (Ralf vocabulary)
+Discovered through iterative dance testing that readings need three distinct temporal behaviors:
+
+1. **Instantaneous** (default): Value snaps to weighted mix when gate opens. Best for reactive states where body shape maps directly to music. Examples: energy, arms_up, wide, compact, flowing.
+
+2. **Accumulating** (`rampSeconds`): Value grows from 0 to full mix over N seconds while gate stays open. Resets on gate close. Best for states where time deepens meaning — dramatic tension, sustained commitment. The longer you hold it, the more powerful. Examples: stillness (3s), suspended (2s), melting (4s).
+
+3. **Edge-triggered** (via intents with `after`): Fires one-time action after sustained activation. Already existed. Examples: drums_drop at 2s, strip_down at 5s.
+
+These compose freely: stillness is both accumulating (continuous blend grows over 3s) AND edge-triggered (drums_drop fires at 2s, strip_down at 5s). Implementation: single `rampSeconds` field on reading config, ReadingsEngine tracks `activeTime` per reading, scales value by `min(1, activeTime / rampSeconds)`.
+
+**Design insight**: The accumulating pattern makes stillness feel like a journey — "you get still and then stillness grows, it sort of emerges." Dance-tested as "perfect, beautiful." The key is that the continuous blend mirrors the edge triggers' philosophy: time deepens the effect. Binary snap-on was less expressive.
+
+### Laban Movement Analysis as reading vocabulary source
+Researched LMA (Rudolf Laban's framework) to expand from 6 to 10 readings. Four Effort factors (Weight, Time, Space, Flow), Bartenieff connectivity, Shape layer. Identified 8 candidates, 4 implementable with existing qualities:
+- **suspended** (Laban: suspension): armsRaised + verticality, gate: armsRaised > 0.4 + velocity < 0.25
+- **melting** (Laban: collapse/melt): contraction + ¬verticality, gate: velocity < 0.2
+- **wide** (Laban: shape flow opening): wristSpread + ¬contraction, gate: wristSpread > 0.5 + contraction < 0.4
+- **compact** (Laban: bound flow): contraction + legBend + ¬wristSpread, gate: contraction > 0.5 + velocity > 0.1
+
+Remaining 3 need new qualities (lateralOscillation, velocityPeriodicity, pathCurvature): swaying, pulsing, winding. LMA provides a rich, well-established vocabulary for naming body states that maps cleanly to the reading config schema.

@@ -62,6 +62,7 @@ export const DEFAULT_SCORE = {
       // Layers strip away over time. Exit triggers a slam back.
       {
         id: 'stillness',
+        rampSeconds: 3,
         mix: { contraction: 0.4, verticality: 0.3 },
         gate: { velocity: { below: 0.12 } },
         _invertInMix: { velocity: 0.3 },
@@ -91,7 +92,7 @@ export const DEFAULT_SCORE = {
       {
         id: 'flowing',
         mix: { coherence: 0.6, velocity: 0.4 },
-        gate: { velocity: { above: 0.15 }, coherence: { above: 0.4 } },
+        gate: { velocity: { above: 0.15 }, coherence: { above: 0.35 } },
         intents: [{ intent: 'flowing_blend', mode: 'continuous' }],
       },
 
@@ -103,6 +104,51 @@ export const DEFAULT_SCORE = {
         gate: { velocity: { below: 0.3 } },
         _invertInMix: { verticality: 0.3 },
         intents: [{ intent: 'grounded_blend', mode: 'continuous' }],
+      },
+
+      // SUSPENDED: held moment at the top — arms high, body still
+      // Harmonic sustain, reverb bloom. The breath-hold moment.
+      {
+        id: 'suspended',
+        rampSeconds: 2,
+        mix: { armsRaised: 0.5, verticality: 0.3 },
+        gate: { armsRaised: { above: 0.4 }, velocity: { below: 0.25 } },
+        _invertInMix: { velocity: 0.2 },
+        intents: [{ intent: 'suspended_blend', mode: 'continuous' }],
+      },
+
+      // MELTING: gradual yielding to gravity — sinking, pouring down
+      // Intimate dissolve. Progressive strip at 3s.
+      {
+        id: 'melting',
+        rampSeconds: 4,
+        mix: { contraction: 0.5 },
+        gate: { velocity: { below: 0.2 } },
+        _invertInMix: { verticality: 0.5 },
+        intents: [
+          { intent: 'melting_blend', mode: 'continuous' },
+          { intent: 'melting_strip', mode: 'edge', after: 3 },
+        ],
+      },
+
+      // WIDE: body expands outward — arms spread, open gesture
+      // Spatial bloom, pads and reverb forward.
+      {
+        id: 'wide',
+        mix: { wristSpread: 0.6 },
+        gate: { wristSpread: { above: 0.5 }, contraction: { below: 0.4 } },
+        _invertInMix: { contraction: 0.4 },
+        intents: [{ intent: 'wide_blend', mode: 'continuous' }],
+      },
+
+      // COMPACT: body gathers inward — coiled, compressed energy
+      // Groove tightens, percussive detail forward.
+      {
+        id: 'compact',
+        mix: { contraction: 0.4, legBend: 0.4 },
+        gate: { contraction: { above: 0.5 }, velocity: { above: 0.1 } },
+        _invertInMix: { wristSpread: 0.2 },
+        intents: [{ intent: 'compact_blend', mode: 'continuous' }],
       },
 
       // EXPLOSIVE: the climax impulse — sudden burst of velocity
@@ -172,6 +218,30 @@ export const DEFAULT_SCORE = {
     // OPPOSITION: groove and accent forward when contrasting
     opposition_blend: [
       { action: 'set_volumes', args: { groove: -2, accent: -4, bass: -4, foundation: -6, harmonic_bed: -14, texture: -14, hook: -16 }, weight: 1 },
+    ],
+
+    // SUSPENDED: harmonic sustain — pads and reverb bloom in stillness
+    suspended_blend: [
+      { action: 'set_volumes', args: { harmonic_bed: -2, texture: -4, hook: -6, foundation: -10, bass: -12, groove: -16, accent: -30 }, weight: 1 },
+    ],
+
+    // MELTING: intimate dissolve — texture forward, rhythm fades
+    melting_blend: [
+      { action: 'set_volumes', args: { texture: -4, harmonic_bed: -6, bass: -14, foundation: -16, groove: -20, hook: -20, accent: -40 }, weight: 1 },
+    ],
+    melting_strip: [
+      { action: 'mute', args: { categories: ['groove', 'foundation'], rampTime: 1.0 }, weight: 3 },
+      { action: 'mute', args: { categories: ['groove', 'foundation', 'bass'], rampTime: 1.5 }, weight: 1 },
+    ],
+
+    // WIDE: spatial bloom — pads and reverb expand outward
+    wide_blend: [
+      { action: 'set_volumes', args: { harmonic_bed: -2, texture: -4, hook: -8, foundation: -8, bass: -10, groove: -12, accent: -20 }, weight: 1 },
+    ],
+
+    // COMPACT: groove tightens — percussive detail forward
+    compact_blend: [
+      { action: 'set_volumes', args: { groove: -4, foundation: -6, bass: -6, accent: -8, texture: -14, harmonic_bed: -16, hook: -20 }, weight: 1 },
     ],
 
     // --- Edge-triggered intents ---

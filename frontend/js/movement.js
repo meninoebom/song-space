@@ -271,8 +271,15 @@ export class MovementDetector {
     }
 
     // Velocity (pin min at 0 — zero velocity is absolute, prevents AdaptiveRange drift)
+    // Pin velocity range — min=0 (absolute), max≥0.05 (well above jitter floor)
+    // Standing-still jitter is ~0.002 normalized. With max=0.05, that normalizes
+    // to ~0.04, safely below the stillness gate (0.12 - 0.05 hysteresis = 0.07).
+    // Too-small max causes jitter to dominate, breaking stillness detection.
+    this.ranges.velocity.min = 0;
+    this.ranges.velocity.max = Math.max(this.ranges.velocity.max, 0.05);
     out.velocity = this.ranges.velocity.normalize(mean(this.velocityHistory));
     this.ranges.velocity.min = 0;
+    this.ranges.velocity.max = Math.max(this.ranges.velocity.max, 0.05);
 
     // Impulse: Schmitt trigger — fires on rising edge of velocity, re-arms on return to quiet
     if (this._impulseArmed) {

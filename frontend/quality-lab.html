@@ -34,6 +34,19 @@
     .legend-dot.spatial { background: #ff9f43; }
     .legend-dot.impulse { background: #ee5a6f; }
 
+    /* Reading rows */
+    .reading-row { display: flex; align-items: center; gap: 8px; height: 22px; }
+    .reading-dot { width: 8px; height: 8px; border-radius: 50%; background: #333; flex-shrink: 0; transition: background 0.15s; }
+    .reading-dot.active { background: #4caf50; box-shadow: 0 0 4px #4caf50; }
+    .reading-name { font-size: 11px; width: 80px; text-align: right; color: #999; flex-shrink: 0; }
+    .reading-track { flex: 1; height: 14px; background: #222; border-radius: 3px; overflow: hidden; }
+    .reading-fill { height: 100%; border-radius: 3px; transition: width 0.05s linear; background: #4caf50; min-width: 1px; }
+    .reading-fill.gated { background: #444; }
+    .reading-value { font-size: 10px; width: 36px; text-align: right; color: #666; flex-shrink: 0; }
+    .gate-info { font-size: 9px; color: #555; flex-shrink: 0; max-width: 160px; overflow: hidden; white-space: nowrap; }
+    .gate-pass { color: #4caf50; }
+    .gate-fail { color: #ee5a6f; }
+
     .status-msg { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; color: #666; text-align: center; }
 
     video { display: none; }
@@ -57,6 +70,8 @@
 
   <script type="module">
     import { MovementDetector } from './js/movement.js';
+    import { ReadingsEngine } from './js/readings.js';
+    import { DEFAULT_SCORE } from './js/score.js';
     import * as webcam from './js/webcam.js';
 
     const canvas = document.getElementById('lab-canvas');
@@ -66,7 +81,9 @@
     const video = document.getElementById('webcam-video');
 
     const detector = new MovementDetector();
+    const readingsEngine = new ReadingsEngine(DEFAULT_SCORE.readings.solo);
     const bars = {};
+    const readingBars = {};
 
     // Quality metadata: type + description
     const QUALITY_META = {
@@ -126,6 +143,66 @@
       }
     }
 
+    // Build readings DOM
+    {
+      const h2 = document.createElement('h2');
+      h2.textContent = 'Readings — body interpretations';
+      panel.appendChild(h2);
+
+      for (const config of DEFAULT_SCORE.readings.solo) {
+        const row = document.createElement('div');
+        row.className = 'reading-row';
+
+        const dot = document.createElement('div');
+        dot.className = 'reading-dot';
+
+        const name = document.createElement('div');
+        name.className = 'reading-name';
+        name.textContent = config.id;
+
+        const track = document.createElement('div');
+        track.className = 'reading-track';
+
+        const fill = document.createElement('div');
+        fill.className = 'reading-fill gated';
+        fill.style.width = '0%';
+
+        const val = document.createElement('div');
+        val.className = 'reading-value';
+        val.textContent = '0.00';
+
+        const gateInfo = document.createElement('div');
+        gateInfo.className = 'gate-info';
+
+        track.appendChild(fill);
+        row.appendChild(dot);
+        row.appendChild(name);
+        row.appendChild(track);
+        row.appendChild(val);
+        row.appendChild(gateInfo);
+        panel.appendChild(row);
+
+        readingBars[config.id] = { dot, fill, val, gateInfo, config };
+      }
+    }
+
+    // Format gate conditions for display
+    function formatGates(config, qualities) {
+      const parts = [];
+      for (const [q, cond] of Object.entries(config.gate || {})) {
+        const v = (qualities[q] ?? 0).toFixed(2);
+        if (cond.above !== undefined) {
+          const pass = (qualities[q] ?? 0) >= cond.above;
+          parts.push(`<span class="${pass ? 'gate-pass' : 'gate-fail'}">${q}>${cond.above} (${v})</span>`);
+        }
+        if (cond.below !== undefined) {
+          const pass = (qualities[q] ?? 0) <= cond.below;
+          parts.push(`<span class="${pass ? 'gate-pass' : 'gate-fail'}">${q}<${cond.below} (${v})</span>`);
+        }
+      }
+      return parts.length > 0 ? parts.join(' ') : '<span style="color:#555">no gate</span>';
+    }
+
     // Draw mirrored video + skeleton on canvas
     function drawFrame(landmarks) {
       canvas.width = video.videoWidth || 640;
@@ -162,6 +239,18 @@
           const v = qualities[key] ?? 0;
           bar.fill.style.width = `${(v * 100).toFixed(1)}%`;
           bar.val.textContent = v.toFixed(2);
+        }
+
+        // Update readings
+        const readings = readingsEngine.update(qualities, ts);
+        for (const r of readings) {
+          const rb = readingBars[r.id];
+          if (!rb) continue;
+          rb.dot.className = r.active ? 'reading-dot active' : 'reading-dot';
+          rb.fill.className = r.active ? 'reading-fill' : 'reading-fill gated';
+          rb.fill.style.width = `${(r.value * 100).toFixed(1)}%`;
+          rb.val.textContent = r.value.toFixed(2);
+          rb.gateInfo.innerHTML = formatGates(rb.config, qualities);
         }
 
         drawFrame(results.landmarks);
