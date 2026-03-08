@@ -163,12 +163,21 @@ export const DEFAULT_SCORE = {
         intents: [{ intent: 'compact_blend', mode: 'continuous' }],
       },
 
+      // STEPPING: footwork drives groove — stomps, steps, kicks
+      // Fires on each foot strike. Rewards rhythmic footwork.
+      {
+        id: 'stepping',
+        mix: { step: 0.7, velocity: 0.3 },
+        gate: { step: { above: 0.2 } },
+        intents: [{ intent: 'stepping_blend', mode: 'continuous' }],
+      },
+
       // EXPLOSIVE: the climax impulse — sudden burst of velocity
       // Accent slam + filter sweep. Rewards dramatic shifts.
       {
         id: 'explosive',
         mix: { velocity: 0.4, impulse: 0.6 },
-        gate: { velocity: { above: 0.6 } },
+        gate: { velocity: { above: 0.4 }, impulse: { above: 0.3 } },
         intents: [{ intent: 'explosive_slam', mode: 'edge' }],
       },
     ],
@@ -249,6 +258,11 @@ export const DEFAULT_SCORE = {
     // WIDE: spatial bloom — pads and reverb expand outward
     wide_blend: [
       { action: 'set_volumes', args: { harmonic_bed: -2, texture: -4, hook: -8, foundation: -8, bass: -10, groove: -12, accent: -20 }, weight: 1 },
+    ],
+
+    // STEPPING: rhythm accentuated — groove, percussion, and accents forward
+    stepping_blend: [
+      { action: 'set_volumes', args: { groove: -2, foundation: -4, accent: -6, bass: -6, texture: -14, harmonic_bed: -16, hook: -18 }, weight: 1 },
     ],
 
     // COMPACT: groove tightens — percussive detail forward

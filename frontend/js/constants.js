@@ -38,6 +38,7 @@ export const QUALITY_KEYS = [
   'legBend',      // knee bend (high = bent)
   'headTilt',     // head offset from center
   'jump',         // vertical launch (spike-and-decay)
+  'step',         // foot strike event (spike-and-decay, ankle drops)
 ];
 
 // --- Output Contract: Actions ---

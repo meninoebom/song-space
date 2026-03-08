@@ -47,6 +47,23 @@
     .gate-pass { color: #4caf50; }
     .gate-fail { color: #ee5a6f; }
 
+    /* Intent rows */
+    .intent-row { display: flex; align-items: center; gap: 8px; height: 22px; }
+    .intent-mode { font-size: 9px; width: 16px; text-align: center; color: #555; flex-shrink: 0; font-weight: bold; }
+    .intent-mode.continuous { color: #4a9eff; }
+    .intent-mode.edge { color: #ff9f43; }
+    .intent-name { font-size: 11px; width: 120px; text-align: right; color: #999; flex-shrink: 0; overflow: hidden; white-space: nowrap; }
+    .intent-track { flex: 1; height: 14px; background: #222; border-radius: 3px; overflow: hidden; position: relative; }
+    .intent-fill { height: 100%; border-radius: 3px; transition: width 0.05s linear; min-width: 1px; }
+    .intent-fill.continuous { background: #4a9eff; }
+    .intent-fill.edge-waiting { background: #ff9f43; }
+    .intent-fill.edge-fired { background: #4caf50; }
+    .intent-status { font-size: 9px; width: 60px; text-align: right; color: #555; flex-shrink: 0; }
+    .intent-status.active { color: #4caf50; }
+    .intent-status.fired { color: #ff9f43; }
+    .intent-action { font-size: 9px; color: #555; flex-shrink: 0; max-width: 140px; overflow: hidden; white-space: nowrap; }
+    .intent-action.flash { color: #ff9f43; transition: color 0.1s; }
+
     .status-msg { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; color: #666; text-align: center; }
 
     video { display: none; }
@@ -71,6 +88,8 @@
   <script type="module">
     import { MovementDetector } from './js/movement.js';
     import { ReadingsEngine } from './js/readings.js';
+    import { RalfRuntime } from './js/runtime.js';
+    import { CATEGORIES } from './js/constants.js';
     import { DEFAULT_SCORE } from './js/score.js';
     import * as webcam from './js/webcam.js';
 
@@ -82,8 +101,30 @@
 
     const detector = new MovementDetector();
     const readingsEngine = new ReadingsEngine(DEFAULT_SCORE.readings.solo);
+
+    // Mock output adapter — records actions instead of playing audio
+    const mockEngine = {
+      loaded: true,
+      _lastAction: null,
+      _actionFlash: 0,
+      setCategoryVolume() {},
+      muteCategory(cat, ramp) { this._lastAction = `mute ${cat}`; this._actionFlash = 30; },
+      restoreCategory(cat, ramp) { this._lastAction = `restore ${cat}`; this._actionFlash = 30; },
+      isTriggerMuted() { return false; },
+      triggerOneshot(cat, db) { this._lastAction = `oneshot ${cat}`; this._actionFlash = 30; },
+      sweepFilter(cat, from, to, dur) { this._lastAction = `sweep ${cat} ${from}→${to}`; this._actionFlash = 30; },
+    };
+
+    const runtimeScore = {
+      readings: DEFAULT_SCORE.readings.solo,
+      intents: DEFAULT_SCORE.intents,
+      mappings: DEFAULT_SCORE.mappings,
+    };
+    const runtime = new RalfRuntime(runtimeScore, mockEngine);
+
     const bars = {};
     const readingBars = {};
+    const intentRows = {};
 
     // Quality metadata: type + description
     const QUALITY_META = {
@@ -97,13 +138,14 @@
       legBend:       { type: 'spatial',  desc: 'knee bend angle' },
       headTilt:      { type: 'spatial',  desc: 'head angle from vertical' },
       jump:          { type: 'impulse',  desc: 'vertical launch detected' },
+      step:          { type: 'impulse',  desc: 'foot strike — spike per step/stomp' },
     };
 
     // Group by type for display order
     const GROUPS = [
       { label: 'Temporal — how you move over time', keys: ['velocity', 'impulse', 'coherence'] },
       { label: 'Spatial — your body shape right now', keys: ['contraction', 'verticality', 'wristSpread', 'armsRaised', 'legBend', 'headTilt'] },
-      { label: 'Impulse — momentary events', keys: ['jump'] },
+      { label: 'Impulse — momentary events', keys: ['jump', 'step'] },
     ];
 
     // Build DOM
@@ -186,6 +228,100 @@
       }
     }
 
+    // Build intents DOM
+    {
+      const h2 = document.createElement('h2');
+      h2.textContent = 'Intents — what the brain wants to do';
+      panel.appendChild(h2);
+
+      for (const config of DEFAULT_SCORE.readings.solo) {
+        if (!config.intents) continue;
+        for (let idx = 0; idx < config.intents.length; idx++) {
+          const intent = config.intents[idx];
+          const key = `${config.id}:${idx}`;
+
+          const row = document.createElement('div');
+          row.className = 'intent-row';
+
+          const mode = document.createElement('div');
+          mode.className = `intent-mode ${intent.mode}`;
+          mode.textContent = intent.mode === 'continuous' ? 'C' : 'E';
+          mode.title = intent.mode;
+
+          const name = document.createElement('div');
+          name.className = 'intent-name';
+          name.textContent = intent.intent;
+          name.title = `${config.id} → ${intent.intent}${intent.after ? ` (after ${intent.after}s)` : ''}`;
+
+          const track = document.createElement('div');
+          track.className = 'intent-track';
+
+          const fill = document.createElement('div');
+          fill.className = `intent-fill ${intent.mode === 'continuous' ? 'continuous' : 'edge-waiting'}`;
+          fill.style.width = '0%';
+
+          const status = document.createElement('div');
+          status.className = 'intent-status';
+          status.textContent = '—';
+
+          const action = document.createElement('div');
+          action.className = 'intent-action';
+
+          track.appendChild(fill);
+          row.appendChild(mode);
+          row.appendChild(name);
+          row.appendChild(track);
+          row.appendChild(status);
+          row.appendChild(action);
+          panel.appendChild(row);
+
+          intentRows[key] = { fill, status, action, intent, readingId: config.id };
+        }
+
+        // on_exit intents
+        if (config.on_exit) {
+          for (const intentName of config.on_exit) {
+            const key = `${config.id}:exit:${intentName}`;
+            const row = document.createElement('div');
+            row.className = 'intent-row';
+
+            const mode = document.createElement('div');
+            mode.className = 'intent-mode edge';
+            mode.textContent = '⏎';
+            mode.title = 'on_exit';
+
+            const name = document.createElement('div');
+            name.className = 'intent-name';
+            name.textContent = intentName;
+            name.title = `${config.id} on_exit → ${intentName}`;
+
+            const track = document.createElement('div');
+            track.className = 'intent-track';
+            const fill = document.createElement('div');
+            fill.className = 'intent-fill edge-waiting';
+            fill.style.width = '0%';
+
+            const status = document.createElement('div');
+            status.className = 'intent-status';
+            status.textContent = '—';
+
+            const action = document.createElement('div');
+            action.className = 'intent-action';
+
+            track.appendChild(fill);
+            row.appendChild(mode);
+            row.appendChild(name);
+            row.appendChild(track);
+            row.appendChild(status);
+            row.appendChild(action);
+            panel.appendChild(row);
+
+            intentRows[key] = { fill, status, action, intent: { intent: intentName, mode: 'exit' }, readingId: config.id };
+          }
+        }
+      }
+    }
+
     // Format gate conditions for display
     function formatGates(config, qualities) {
       const parts = [];
@@ -251,6 +387,62 @@
           rb.fill.style.width = `${(r.value * 100).toFixed(1)}%`;
           rb.val.textContent = r.value.toFixed(2);
           rb.gateInfo.innerHTML = formatGates(rb.config, qualities);
+        }
+
+        // Update intents via runtime (with mock engine)
+        const dt = 1 / 30;
+        runtime.update(readings, CATEGORIES, dt);
+
+        // Visualize intent states from runtime internals
+        for (const [key, ir] of Object.entries(intentRows)) {
+          const readingResult = readings.find(r => r.id === ir.readingId);
+          const isActive = readingResult ? readingResult.active : false;
+
+          if (ir.intent.mode === 'continuous') {
+            const v = isActive ? (readingResult?.value ?? 0) : 0;
+            ir.fill.style.width = `${(v * 100).toFixed(1)}%`;
+            ir.status.textContent = isActive ? 'active' : '—';
+            ir.status.className = isActive ? 'intent-status active' : 'intent-status';
+          } else if (ir.intent.mode === 'exit') {
+            // on_exit: flash when reading just deactivated
+            const wasActive = runtime._edgeState[ir.readingId] ?? false;
+            ir.fill.style.width = '0%';
+            ir.status.textContent = isActive ? 'armed' : '—';
+            ir.status.className = 'intent-status';
+          } else {
+            // Edge intent — show sustain timer progress
+            const sustainTime = runtime._sustainTime[key] ?? 0;
+            const fired = runtime._fired[key] ?? false;
+            const threshold = ir.intent.after || 0;
+
+            if (isActive && threshold > 0) {
+              const progress = Math.min(1, sustainTime / threshold);
+              ir.fill.style.width = `${(progress * 100).toFixed(1)}%`;
+              ir.fill.className = fired ? 'intent-fill edge-fired' : 'intent-fill edge-waiting';
+              ir.status.textContent = fired ? `fired` : `${sustainTime.toFixed(1)}/${threshold}s`;
+              ir.status.className = fired ? 'intent-status fired' : 'intent-status active';
+            } else if (isActive && threshold === 0) {
+              ir.fill.style.width = fired ? '100%' : '0%';
+              ir.fill.className = fired ? 'intent-fill edge-fired' : 'intent-fill edge-waiting';
+              ir.status.textContent = fired ? 'fired' : 'ready';
+              ir.status.className = fired ? 'intent-status fired' : 'intent-status';
+            } else {
+              ir.fill.style.width = '0%';
+              ir.fill.className = 'intent-fill edge-waiting';
+              ir.status.textContent = '—';
+              ir.status.className = 'intent-status';
+            }
+          }
+        }
+
+        // Flash last edge action from mock engine
+        if (mockEngine._actionFlash > 0) {
+          mockEngine._actionFlash--;
+          const lastActionEl = document.getElementById('last-action');
+          if (lastActionEl) {
+            lastActionEl.textContent = mockEngine._lastAction || '';
+            lastActionEl.className = 'intent-action flash';
+          }
         }
 
         drawFrame(results.landmarks);

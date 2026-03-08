@@ -146,6 +146,11 @@ export class MovementDetector {
     this._impulseValue = 0;
     this._impulseArmed = true;
 
+    // Step detection: ankle Y drop events (spike-and-decay)
+    this._ankleYHistory = { left: [], right: [] };
+    this._stepValue = 0;
+    this._stepCooldown = 0;
+
     // Jump: spike-and-decay
     this._jumpValue = 0;
     this._hipYHistory = [];
@@ -171,7 +176,7 @@ export class MovementDetector {
 
   _computePrimitives(landmarks) {
     const out = {
-      velocity: 0, impulse: 0, coherence: 0,
+      velocity: 0, impulse: 0, coherence: 0, step: 0,
       contraction: 0.5, verticality: 0.5, wristSpread: 0.5,
       armsRaised: 0, legBend: 0.5, headTilt: 0, jump: 0,
     };
@@ -267,6 +272,8 @@ export class MovementDetector {
     const allVels = [...leftVels, ...rightVels];
     // Normalize by torso length: "body-lengths per frame" instead of pixels
     const frameVel = mean(allVels) / torsoLength;
+    // Peak joint velocity — for impulse detection (catches stomps, kicks, punches)
+    const peakVel = allVels.length > 0 ? Math.max(...allVels) / torsoLength : 0;
 
     this.prevLandmarks = landmarks;
 
@@ -292,19 +299,49 @@ export class MovementDetector {
     this.ranges.velocity.min = 0;
     this.ranges.velocity.max = Math.max(this.ranges.velocity.max, 0.05);
 
-    // Impulse: Schmitt trigger — fires on rising edge of velocity, re-arms on return to quiet
+    // Impulse: Schmitt trigger on PEAK JOINT velocity (not mean).
+    // Mean dilutes sharp movements in one body part (stomps, kicks, punches).
+    // Peak catches any joint that moves sharply, regardless of what else is still.
+    const peakVelNorm = Math.min(1, peakVel / Math.max(this.ranges.velocity.max * 3, 0.15));
+    let impulseFired = false;
     if (this._impulseArmed) {
-      if (out.velocity > 0.4) {
+      if (peakVelNorm > 0.4) {
         this._impulseValue = 1.0;
         this._impulseArmed = false;
+        impulseFired = true;
       }
     } else {
-      if (out.velocity < 0.15) {
+      if (peakVelNorm < 0.2) {
         this._impulseArmed = true;
       }
     }
     this._impulseValue *= 0.85;
     out.impulse = this._impulseValue;
+
+    // Step: spike-and-decay on foot strike (ankle Y drops).
+    {
+      const lAnkle = landmarks[27], rAnkle = landmarks[28];
+
+      if (this._stepCooldown > 0) this._stepCooldown--;
+
+      for (const [side, ankle] of [['left', lAnkle], ['right', rAnkle]]) {
+        if (ankle.visibility < 0.3) continue;
+        const hist = this._ankleYHistory[side];
+        hist.push(ankle.y);
+        while (hist.length > 15) hist.shift();
+
+        if (hist.length >= 10 && this._stepCooldown === 0) {
+          const baseline = mean(hist.slice(0, -3));
+          if (ankle.y - baseline > 0.02) {
+            this._stepValue = 1.0;
+            this._stepCooldown = 5;
+          }
+        }
+      }
+
+      this._stepValue *= 0.8;
+      out.step = this._stepValue;
+    }
 
     // Coherence: left/right moving together — only meaningful when moving
     if (this.velDiffHistory.length > 5 && out.velocity > 0.05) {
