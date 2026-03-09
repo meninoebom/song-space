@@ -87,35 +87,42 @@ export const DEFAULT_SCORE = {
         on_exit: ['energy_slam'],
       },
 
-      // ARMS UP: the spatial opening — reach overhead, music blooms
-      // Edge-only: filter sweep on entry/exit. The sweep IS the gesture.
+      // ARMS UP: reach overhead → hooks and harmonic bed bloom
+      // Fader: hook + harmonic_bed fade in. Filter sweep on entry/exit.
       {
         id: 'arms_up',
         mix: { armsRaised: 1.0 },
         gate: { armsRaised: { above: 0.4 } },
         intents: [
+          { intent: 'arms_up_fader', mode: 'continuous' },
           { intent: 'arms_open_filter', mode: 'edge' },
         ],
         on_exit: ['arms_close_filter'],
       },
 
-      // FLOWING: the dreamy state — smooth coherent movement
-      // Filter brightens harmonic bed — airiness, openness.
+      // FLOWING: smooth coherent movement → pads and texture forward
+      // Fader: harmonic_bed + texture. Filter brightens harmonic bed.
       {
         id: 'flowing',
         mix: { coherence: 0.6, velocity: 0.4 },
         gate: { velocity: { above: 0.15 }, coherence: { above: 0.35 } },
-        intents: [{ intent: 'flowing_effect', mode: 'continuous' }],
+        intents: [
+          { intent: 'flowing_fader', mode: 'continuous' },
+          { intent: 'flowing_effect', mode: 'continuous' },
+        ],
       },
 
-      // GROUNDED: going underground — low center, bent legs
-      // Filter darkens hooks and texture — warmth, weight.
+      // GROUNDED: low center, bent legs → bass and foundation forward
+      // Fader: bass + foundation. Filter darkens hooks.
       {
         id: 'grounded',
         mix: { legBend: 0.4, contraction: 0.3 },
         gate: { velocity: { below: 0.3 } },
         _invertInMix: { verticality: 0.3 },
-        intents: [{ intent: 'grounded_effect', mode: 'continuous' }],
+        intents: [
+          { intent: 'grounded_fader', mode: 'continuous' },
+          { intent: 'grounded_effect', mode: 'continuous' },
+        ],
       },
 
       // SUSPENDED: held moment at the top — arms high, body still
@@ -146,33 +153,42 @@ export const DEFAULT_SCORE = {
         on_exit: ['melting_release'],
       },
 
-      // WIDE: body expands outward — arms spread, open gesture
-      // Filter opens on harmonic bed + texture — spacious, bright.
+      // WIDE: arms spread, open gesture → harmonic bed swells
+      // Fader: harmonic_bed. Filter opens bright.
       {
         id: 'wide',
         mix: { wristSpread: 0.6 },
         gate: { wristSpread: { above: 0.5 }, contraction: { below: 0.4 } },
         _invertInMix: { contraction: 0.4 },
-        intents: [{ intent: 'wide_effect', mode: 'continuous' }],
+        intents: [
+          { intent: 'wide_fader', mode: 'continuous' },
+          { intent: 'wide_effect', mode: 'continuous' },
+        ],
       },
 
-      // COMPACT: body gathers inward — coiled, compressed energy
-      // Filter closes on everything — compressed, tight, muffled.
+      // COMPACT: body gathers inward → bass and groove tighten
+      // Fader: bass + groove. Filter closes everything.
       {
         id: 'compact',
         mix: { contraction: 0.4, legBend: 0.4 },
         gate: { contraction: { above: 0.5 }, velocity: { above: 0.1 } },
         _invertInMix: { wristSpread: 0.2 },
-        intents: [{ intent: 'compact_effect', mode: 'continuous' }],
+        intents: [
+          { intent: 'compact_fader', mode: 'continuous' },
+          { intent: 'compact_effect', mode: 'continuous' },
+        ],
       },
 
-      // STEPPING: footwork drives groove — stomps, steps, kicks
-      // Filter opens on groove — rhythm gets crisp, present.
+      // STEPPING: footwork → groove and accent punch forward
+      // Fader: groove + accent. Filter crisps rhythm.
       {
         id: 'stepping',
         mix: { step: 0.7, velocity: 0.3 },
         gate: { step: { above: 0.2 } },
-        intents: [{ intent: 'stepping_effect', mode: 'continuous' }],
+        intents: [
+          { intent: 'stepping_fader', mode: 'continuous' },
+          { intent: 'stepping_effect', mode: 'continuous' },
+        ],
       },
 
       // EXPLOSIVE: the climax impulse — sudden burst of velocity
@@ -203,12 +219,14 @@ export const DEFAULT_SCORE = {
 
   // --- Intent pools: each intent maps to weighted action options ---
   //
-  // ENERGY-ONLY VOLUME RULE: Only energy sets category volumes.
-  // EFFECT RULE: Body state readings shape the music's character via
-  // continuous filter modulation (set_effect), not volume. The song
-  // mirrors your body — compact closes filters, wide opens them.
-  // Edge readings (stillness, arms_up, suspended, melting, explosive)
-  // use mute/solo/restore/filter_sweep for dramatic moments.
+  // Three kinds of intent:
+  //   FADERS — focused volume control (1-2 categories per reading, no overlap)
+  //   EFFECTS — filter modulation as seasoning (set_effect tracks reading value)
+  //   DRAWS — edge actions with weighted pools (non-deterministic)
+  //
+  // Energy sets the base mix (all 7 categories). Other readings layer
+  // faders + effects on top. Edge readings (stillness, suspended, melting,
+  // explosive) use dramatic draws (mute/solo/restore/filter_sweep/oneshot).
   //
   // Continuous intents: highest-weight option, every frame.
   // Edge intents: random draw from weighted pool, fires once.
@@ -221,6 +239,41 @@ export const DEFAULT_SCORE = {
     energy_blend: [
       { action: 'set_volumes', args: { texture: -6, harmonic_bed: -8, bass: -8, foundation: -10, groove: -10, hook: -12, accent: -16 }, weight: 1 },
     ],
+
+    // --- FADERS: focused volume control, 1-2 categories each ---
+    // Each reading owns its lane. No two faders fight over the same category.
+
+    // ARMS UP: hooks and harmonic bed bloom when you reach overhead
+    arms_up_fader: [
+      { action: 'set_volumes', args: { hook: -4, harmonic_bed: -4 }, weight: 1 },
+    ],
+
+    // FLOWING: pads and texture come forward during graceful movement
+    flowing_fader: [
+      { action: 'set_volumes', args: { harmonic_bed: -4, texture: -4 }, weight: 1 },
+    ],
+
+    // GROUNDED: bass and foundation swell when you sink low
+    grounded_fader: [
+      { action: 'set_volumes', args: { bass: -2, foundation: -4 }, weight: 1 },
+    ],
+
+    // WIDE: harmonic bed swells when you spread open
+    wide_fader: [
+      { action: 'set_volumes', args: { harmonic_bed: -2 }, weight: 1 },
+    ],
+
+    // COMPACT: bass and groove tighten when you curl in
+    compact_fader: [
+      { action: 'set_volumes', args: { bass: -4, groove: -4 }, weight: 1 },
+    ],
+
+    // STEPPING: groove and accent punch forward on footwork
+    stepping_fader: [
+      { action: 'set_volumes', args: { groove: -2, accent: -6 }, weight: 1 },
+    ],
+
+    // --- EFFECTS: filter modulation as seasoning on top of faders ---
 
     // FLOWING: filter opens on harmonic bed — airy, bright, dreamy
     // min = default (no effect at low value), max = wide open at full flowing
