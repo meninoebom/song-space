@@ -5,10 +5,29 @@
  * Each reading = { id, mix: {quality: weight}, gate: {quality: {above/below}} }
  * Output    = { id, value: 0-1, active: boolean }
  *
+ * Reading behavior patterns (reusable across readings):
+ *   - Instantaneous (default): value snaps to weighted mix when gate opens.
+ *     Best for reactive states where body shape maps directly to music.
+ *     Examples: energy, arms_up, wide, compact.
+ *
+ *   - Accumulating (rampSeconds): value grows from 0 to full mix over N seconds
+ *     while the gate stays open. Resets when gate closes. Best for states where
+ *     time deepens meaning — dramatic tension, sustained commitment.
+ *     Examples: stillness (3s), suspended, melting.
+ *
+ *   - Edge-triggered (via intents with `after`): fires a one-time action after
+ *     sustained activation. Defined in score.js, not here.
+ *     Examples: drums_drop after 2s, strip_down after 5s.
+ *
+ * These three patterns compose freely: a reading can be accumulating AND have
+ * edge-triggered intents (e.g., stillness ramps continuously AND fires drums_drop
+ * at 2s). This vocabulary transfers directly to Ralf's scene system.
+ *
  * Ralf compatibility notes:
  *   - mix formula: value = Σ(quality × weight) / Σ(weights)
  *   - gate: all conditions must be met for reading to be active
  *   - hysteresis band (0.05) prevents oscillation near thresholds
+ *   - rampSeconds: optional accumulation time (0 or absent = instantaneous)
  */
 
 
@@ -25,9 +44,12 @@ export class ReadingsEngine {
     // Per-reading state
     this.values = {};       // id → current smoothed value (0-1)
     this.gateState = {};    // "readingId:quality" → boolean (for hysteresis)
+    this.activeTime = {};   // id → seconds gate has been continuously open
+    this.lastUpdateTime = null; // for computing dt
 
     for (const c of configs) {
       this.values[c.id] = 0;
+      this.activeTime[c.id] = 0;
     }
   }
 
@@ -36,7 +58,9 @@ export class ReadingsEngine {
    * @param {Object} qualities — { velocity, jerkiness, coherence, ... } all 0-1
    * @returns {Array} — [{ id, value, active }, ...]
    */
-  update(qualities) {
+  update(qualities, timestamp = performance.now() / 1000) {
+    const dt = this.lastUpdateTime !== null ? timestamp - this.lastUpdateTime : 1 / 30;
+    this.lastUpdateTime = timestamp;
     const results = [];
 
     for (const config of this.configs) {
@@ -85,6 +109,16 @@ export class ReadingsEngine {
           this.gateState[gateKey] = gateActive;
           if (!gateActive) active = false;
         }
+      }
+
+      // --- Accumulation ramp (if configured) ---
+      if (active) {
+        this.activeTime[config.id] += dt;
+        if (config.rampSeconds > 0) {
+          value *= Math.min(1, this.activeTime[config.id] / config.rampSeconds);
+        }
+      } else {
+        this.activeTime[config.id] = 0;
       }
 
       // --- Lerp toward target (smooth transitions) ---

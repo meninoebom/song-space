@@ -132,3 +132,103 @@ Going from 11→6 readings eliminated muddy competing activations. Each reading 
 
 ### Qualities are the real foundation
 Getting body qualities right (reliable, meaningful, distinct) matters more than clever score config. The score is only as good as the qualities it reads. Next step: audit qualities for reliability and perceptual distinctness. Consider building a quality visualizer/tester.
+
+## 2026-03-07 - Quality refinement: iterative dance testing
+
+### AdaptiveRange min-pinning for qualities with absolute zero
+When standing still, velocity values are near-zero. AdaptiveRange contracts min/max toward midpoint until `range < 0.0001`, then returns 0.5 ("I don't know"). Fix: pin `this.ranges.velocity.min = 0` after each normalize call. Zero velocity IS the absolute minimum. Same fix needed for coherence variance. Any quality with a true floor should pin its min.
+
+### Stillness is a reading, not a quality
+Tried making stillness a quality (1 - velocity). It's redundant — readings already handle this with gates (`velocity: { below: 0.12 }`). Lesson: if a "quality" is just an interpretation of another quality through a threshold, it belongs in the reading layer, not the quality layer.
+
+### Coherence needs torso-normalized velocity diffs
+Left/right velocity differences were in raw pixel space while velocity was torso-normalized. The raw diffs were tiny → AdaptiveRange couldn't distinguish them → coherence stuck at 0.5. Fix: normalize left/right velocities by torsoLength, same as frameVel. Also gate coherence on `out.velocity > 0.05` (normalized) — coherence is meaningless when still.
+
+### Impulse = rising edge detection (Schmitt trigger), not sustained-high detection
+First attempt: `|frameVel - rollingMean|` — mean chases signal → repeated triggers ("da da da da"). Second attempt: spike-and-decay with cooldown — still pulses because velocity delta persists across frames. Working solution: Schmitt trigger with two thresholds. Fire when normalized velocity crosses above 0.4, re-arm only when it drops below 0.15. One clean spike per burst. Pattern from audio onset detection (librosa peak_pick) and biomechanics movement onset literature.
+
+### Contraction enriched: all 4 extremities from body center
+Original contraction only used wrist-to-hip distance. Enriched to mean distance of wrists + ankles from body center (mean of shoulders + hips). Captures full expansion/contraction — crouched ball vs spread-eagle. Dance-tested as "really really good."
+
+### Spatial qualities are inherently reliable; temporal qualities need careful engineering
+Angle/ratio-based spatial qualities (armsRaised, legBend, headTilt, wristSpread) work immediately because they're scale-independent. Velocity-based temporal qualities broke in multiple ways: pixel-scale dependence, AdaptiveRange drift, rolling-mean chasing. Each required a specific fix (torso normalization, min-pinning, Schmitt trigger). Budget more time for temporal quality engineering.
+
+### Quality inventory: 18 → 10 through dance testing
+Started with 18 qualities. Removed 8 that didn't work or weren't meaningful (torsoTwist, jerkiness, movementScale, symmetry, armAsymmetry, elbowBend, hipSway, clap, stillness). Final 10: velocity, impulse, coherence, contraction, verticality, wristSpread, armsRaised, legBend, headTilt, jump. Each confirmed meaningful through Quality Lab testing.
+
+## 2026-03-07 - Velocity max pin + accumulating readings
+
+### AdaptiveRange max-pinning: floor must account for jitter AND hysteresis
+Three iterations to get the velocity max pin right:
+- **0.001**: Landmark jitter (~0.0005) is comparable to range → chaotic normalization (0.3-0.8 when still). Broken.
+- **0.01**: Jitter normalizes to ~0.2, which is above the hysteresis activation threshold (gate `below: 0.12` minus `HYSTERESIS_BAND: 0.05` = 0.07). Works once, then fails after movement expands the range and decay brings it back to the pin floor.
+- **0.05**: Jitter normalizes to ~0.04, safely below 0.07. Works reliably across move→still→move→still cycles.
+
+**The formula**: `max_floor > jitter / (gate_threshold - HYSTERESIS_BAND)`. For stillness: `0.002 / 0.07 = 0.029`, so 0.05 gives comfortable margin. Pin both before AND after normalize — before so the current frame uses a healthy range, after so decay doesn't collapse it before next frame.
+
+**Generalizable rule**: When pinning AdaptiveRange floors, the pin value must be well above the signal's noise floor, AND the resulting normalized noise must be below any gate threshold minus its hysteresis band. Calculate both constraints.
+
+### Three reading behavior patterns (Ralf vocabulary)
+Discovered through iterative dance testing that readings need three distinct temporal behaviors:
+
+1. **Instantaneous** (default): Value snaps to weighted mix when gate opens. Best for reactive states where body shape maps directly to music. Examples: energy, arms_up, wide, compact, flowing.
+
+2. **Accumulating** (`rampSeconds`): Value grows from 0 to full mix over N seconds while gate stays open. Resets on gate close. Best for states where time deepens meaning — dramatic tension, sustained commitment. The longer you hold it, the more powerful. Examples: stillness (3s), suspended (2s), melting (4s).
+
+3. **Edge-triggered** (via intents with `after`): Fires one-time action after sustained activation. Already existed. Examples: drums_drop at 2s, strip_down at 5s.
+
+These compose freely: stillness is both accumulating (continuous blend grows over 3s) AND edge-triggered (drums_drop fires at 2s, strip_down at 5s). Implementation: single `rampSeconds` field on reading config, ReadingsEngine tracks `activeTime` per reading, scales value by `min(1, activeTime / rampSeconds)`.
+
+**Design insight**: The accumulating pattern makes stillness feel like a journey — "you get still and then stillness grows, it sort of emerges." Dance-tested as "perfect, beautiful." The key is that the continuous blend mirrors the edge triggers' philosophy: time deepens the effect. Binary snap-on was less expressive.
+
+### Laban Movement Analysis as reading vocabulary source
+Researched LMA (Rudolf Laban's framework) to expand from 6 to 10 readings. Four Effort factors (Weight, Time, Space, Flow), Bartenieff connectivity, Shape layer. Identified 8 candidates, 4 implementable with existing qualities:
+- **suspended** (Laban: suspension): armsRaised + verticality, gate: armsRaised > 0.4 + velocity < 0.25
+- **melting** (Laban: collapse/melt): contraction + ¬verticality, gate: velocity < 0.2
+- **wide** (Laban: shape flow opening): wristSpread + ¬contraction, gate: wristSpread > 0.5 + contraction < 0.4
+- **compact** (Laban: bound flow): contraction + legBend + ¬wristSpread, gate: contraction > 0.5 + velocity > 0.1
+
+Remaining 3 need new qualities (lateralOscillation, velocityPeriodicity, pathCurvature): swaying, pulsing, winding. LMA provides a rich, well-established vocabulary for naming body states that maps cleanly to the reading config schema.
+
+## 2026-03-08 - Impulse peak velocity fix + step detection
+
+### Impulse needs peak joint velocity, not mean
+**Problem:** After pinning velocity max at 0.05, impulse stopped triggering on stomps and punches. The 30-frame mean velocity dilutes localized sharp movements — a stomp moves ankles fast but shoulders barely move, so the mean barely spikes.
+**Solution:** Compute `peakVel = Math.max(...allVels)` (max velocity across all joints) alongside `frameVel` (mean). Use peak for impulse detection, mean for the velocity quality. Peak catches any sharp movement anywhere in the body.
+**Code ref:** `frontend/js/movement.js` ~line 275
+
+### Step detection: ankle Y baseline with spike-and-decay
+**Problem:** Needed concrete footwork detection. Abstract rhythmicity (autocorrelation on velocity) was tried and scrapped — too noisy, not meaningful enough to map to music.
+**Solution:** Track ankle Y history (15 frames). Detect foot strikes when current ankle Y exceeds baseline (mean of older frames) by >0.02. Spike-and-decay (0.8 decay factor), 5-frame cooldown between triggers. Works well for stomps and rhythmic stepping.
+**Key insight:** Concrete event detection (step = ankle drops) beats abstract periodicity analysis (autocorrelation). The musical mapping is clearer: each step can drive groove/percussion.
+
+### Kick detection: false positive overlap with steps
+**Problem:** Kick (ankle Y rises sharply) fires on the pre-lift phase of normal steps — the foot lifts before it strikes down. Too much overlap.
+**Decision:** Scrapped. Not worth the complexity. Step alone covers the rhythmic footwork use case.
+
+### Velocity max pin: noise_floor / max_pin < gate_threshold - HYSTERESIS_BAND
+**Formula:** For stillness gate (velocity below 0.12, hysteresis 0.05): MediaPipe jitter ~0.0005, so max_pin must be > 0.0005 / (0.12 - 0.05) = 0.007. Pin of 0.01 was marginal (jitter normalized to ~0.05, barely below 0.07). Pin of 0.05 works cleanly (jitter normalizes to ~0.01).
+**Critical:** Pin BOTH before AND after normalize — normalize uses the old max if you only pin after.
+
+## 2026-03-09 - Score tuning: five iterations to effects + bring-in/take-out
+
+### Volume control belongs to the composer, not readings
+Five iterations converged on: only the `energy` reading sets category volumes. All other readings shape music through effects (continuous filter tracking) and bring-in/take-out (mute/restore on enter/exit). Volume manipulation from multiple readings creates mud — they fight each other for the same channels.
+
+### Per-category weight tracking prevents blending bugs
+Global `totalWeight` in volume blending drags unmentioned categories to silence. When a fader mentions 2 of 7 categories, the other 5 get weighted toward quietVolumes (-50dB). Fix: track `catWeights[cat]` per category. Faders only contribute to categories they explicitly mention. Energy fills all unmentioned ones as the base mix.
+
+### Filter direction matters: min is default, max is full-effect
+`set_effect` with `min: 400, max: 5000` means at full reading strength, filter is at 5000Hz — the DEFAULT. No audible change. For darkening effects (compact, grounded), use `min: 5000, max: 300` so full activation = 300Hz = very muffled.
+
+### Continuous effects need reset on reading deactivate
+Without explicit reset, filters stick at their last position when a reading turns off. Added `_resetContinuousEffect()` that snaps all set_effect params back to `min` (the "default / no-effect" end of the range) on the falling edge.
+
+### Sweep conflict tracking prevents effect jitter
+Edge `filter_sweep` and continuous `set_effect` fighting over the same filter = audible jitter. Track `_sweepActive[category] = Tone.now() + duration`. `setFilterFrequency` yields while a sweep is active.
+
+### Effects + mute/restore is the right vocabulary for readings
+The progression: all-volume → sculpted-volume → filters-only → effects+mute/restore. Each iteration was more expressive and less muddy. The final vocabulary: effects (continuous filter modulation tracking reading value), bring-in (restore on enter), take-out (mute on exit), draws (weighted random pool on edge). This maps cleanly to Ralf's intent system.
+
+### Control first, then indeterminacy, then arc
+After dance testing, the system still doesn't feel responsive enough. The missing foundation is **deterministic, obvious control**: arms up → something unmistakable happens (and keeps happening while up). Ball → something unmistakable (and keeps happening while curled). Stomp → something. First make it feel like an instrument with clear cause-and-effect. THEN add weighted pools for variety. THEN layer the arc on top for journey. Building indeterminacy before control is backwards — you can't feel surprise if you don't first feel agency.

@@ -1,12 +1,30 @@
 /**
- * Unified Ralf runtime — replaces mapping.js + trigger-engine.js + trigger-actions.js.
+ * Unified Ralf runtime — the "brain" of the adapter architecture.
  *
- * Implements Ralf's pipeline: Readings → Resolve → Draw → Act
+ * Pipeline: Readings → Resolve → Draw → Act
  * Using the same config schema as Ralf's Scene.
+ *
+ * This module is OUTPUT-AGNOSTIC. It resolves readings into action commands
+ * (see ACTION_TYPES in constants.js) and hands them to an output adapter
+ * for execution. The output adapter is injected via constructor — today
+ * it's AudioEngine (Tone.js), but could be an OSC sender, MIDI output,
+ * or live score renderer.
+ *
+ * Output adapter interface — any adapter must implement:
+ *   setCategoryVolume(category, dB)
+ *   muteCategory(category, rampTime)
+ *   restoreCategory(category, rampTime)
+ *   isTriggerMuted(category) → boolean
+ *   triggerOneshot(category, volumeDb)
+ *   sweepFilter(category, fromHz, toHz, durationSeconds)
+ *   setEffect(category, effectName, paramName, value)
+ *   loaded → boolean
  *
  * "Draw" is Ralf's term for weighted random selection from an intent pool.
  * Like drawing from a deck — weights stack the deck, but which card
  * you draw still varies.
+ *
+ * See docs/solutions/adapter-architecture.md for the full design.
  */
 
 import { CATEGORIES } from './constants.js';
@@ -46,17 +64,19 @@ export class RalfRuntime {
    * @param {Array} readings — [{ id, value, active }]
    * @param {Array} phaseCategories — allowed categories from arc phase
    * @param {number} dt — seconds since last frame
+   * @param {string} [phaseId] — current arc phase id (for phaseOverrides)
    */
-  update(readings, phaseCategories, dt = 1 / 30) {
+  update(readings, phaseCategories, dt = 1 / 30, phaseId = null) {
     if (!this.engine.loaded) return;
 
     const readingMap = {};
     for (const r of readings) readingMap[r.id] = r;
 
     // Collect volume targets from continuous intents for blending
-    let totalWeight = 0;
+    // Per-category weighting: faders only affect categories they mention
     const contributions = {};
-    for (const cat of CATEGORIES) contributions[cat] = 0;
+    const catWeights = {};
+    for (const cat of CATEGORIES) { contributions[cat] = 0; catWeights[cat] = 0; }
     const quietVolumes = this.score.mappings?.quietVolumes;
 
     for (const config of this.score.readings) {
@@ -65,17 +85,21 @@ export class RalfRuntime {
       const wasActive = this._edgeState[config.id] ?? false;
       this._edgeState[config.id] = isActive;
 
+      // Merge phase overrides if present
+      const effectiveIntents = (phaseId && config.phaseOverrides?.[phaseId]?.intents)
+        ? config.phaseOverrides[phaseId].intents
+        : config.intents;
+
       // Process intents
-      if (config.intents) {
-        for (let idx = 0; idx < config.intents.length; idx++) {
-          const intent = config.intents[idx];
+      if (effectiveIntents) {
+        for (let idx = 0; idx < effectiveIntents.length; idx++) {
+          const intent = effectiveIntents[idx];
           const key = `${config.id}:${idx}`;
 
           if (intent.mode === 'continuous') {
             // Fire every frame while active
             if (isActive && reading.value > 0.05) {
-              this._fireContinuousIntent(intent.intent, reading, phaseCategories, contributions);
-              totalWeight += reading.value;
+              this._fireContinuousIntent(intent.intent, reading, phaseCategories, contributions, catWeights);
             }
           } else {
             // Edge mode (default)
@@ -99,6 +123,15 @@ export class RalfRuntime {
         }
       }
 
+      // Reset continuous effects on falling edge (filter returns to default)
+      if (!isActive && wasActive && effectiveIntents) {
+        for (const intent of effectiveIntents) {
+          if (intent.mode === 'continuous') {
+            this._resetContinuousEffect(intent.intent, phaseCategories);
+          }
+        }
+      }
+
       // on_exit: fire intents on falling edge
       if (!isActive && wasActive && config.on_exit) {
         for (const intentName of config.on_exit) {
@@ -107,17 +140,17 @@ export class RalfRuntime {
       }
     }
 
-    // Apply blended continuous volumes
+    // Apply blended continuous volumes (per-category weighting)
     if (quietVolumes) {
       for (const cat of CATEGORIES) {
-        let vol = totalWeight > 0 ? contributions[cat] / totalWeight : quietVolumes[cat];
+        let vol = catWeights[cat] > 0 ? contributions[cat] / catWeights[cat] : quietVolumes[cat];
         if (!phaseCategories.includes(cat)) vol = -60;
         this.engine.setCategoryVolume(cat, vol);
       }
     }
   }
 
-  _fireContinuousIntent(intentName, reading, phaseCategories, contributions) {
+  _fireContinuousIntent(intentName, reading, phaseCategories, contributions, catWeights) {
     const pool = this._getPool(intentName);
     if (!pool || pool.length === 0) return;
 
@@ -135,9 +168,39 @@ export class RalfRuntime {
       const quietVolumes = this.score.mappings?.quietVolumes || {};
       for (const cat of CATEGORIES) {
         if (best.args[cat] !== undefined) {
+          // Fader has an opinion about this category — contribute it
           contributions[cat] += best.args[cat] * w;
-        } else {
+          catWeights[cat] += w;
+        } else if (intentName === 'energy_blend') {
+          // Energy is the base mix — fills in all unmentioned categories
           contributions[cat] += (quietVolumes[cat] ?? -40) * w;
+          catWeights[cat] += w;
+        }
+        // Other faders: no opinion → no contribution (don't drag to silence)
+      }
+    } else if (best.action === 'set_effect' && best.args) {
+      // Interpolate effect parameter by reading value (0→min, 1→max)
+      const { effect, category, param, min, max } = best.args;
+      const value = min + (max - min) * reading.value;
+      const targets = category === '*' ? phaseCategories : [category];
+      for (const cat of targets) {
+        if (phaseCategories.includes(cat)) {
+          this.engine.setEffect(cat, effect, param, value);
+        }
+      }
+    }
+  }
+
+  _resetContinuousEffect(intentName, phaseCategories) {
+    const pool = this._getPool(intentName);
+    if (!pool) return;
+    for (const opt of pool) {
+      if (opt.action === 'set_effect' && opt.args) {
+        const { effect, category, param, min } = opt.args;
+        // Reset to min (the "default / no-effect" end of the range)
+        const targets = category === '*' ? phaseCategories : [category];
+        for (const cat of targets) {
+          this.engine.setEffect(cat, effect, param, min);
         }
       }
     }
@@ -213,6 +276,18 @@ export class RalfRuntime {
       case 'filter_sweep':
         if (option.args) {
           this.engine.sweepFilter(option.args.category, option.args.from, option.args.to, option.args.duration);
+        }
+        break;
+
+      case 'set_effect':
+        if (option.args) {
+          const { effect, category, param, min, max } = option.args;
+          const targets = category === '*' ? phaseCategories : [category];
+          for (const cat of targets) {
+            if (phaseCategories.includes(cat)) {
+              this.engine.setEffect(cat, effect, param, option.args.value ?? max);
+            }
+          }
         }
         break;
 
