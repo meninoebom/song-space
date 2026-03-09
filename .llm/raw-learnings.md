@@ -229,3 +229,6 @@ Edge `filter_sweep` and continuous `set_effect` fighting over the same filter = 
 
 ### Effects + mute/restore is the right vocabulary for readings
 The progression: all-volume → sculpted-volume → filters-only → effects+mute/restore. Each iteration was more expressive and less muddy. The final vocabulary: effects (continuous filter modulation tracking reading value), bring-in (restore on enter), take-out (mute on exit), draws (weighted random pool on edge). This maps cleanly to Ralf's intent system.
+
+### Control first, then indeterminacy, then arc
+After dance testing, the system still doesn't feel responsive enough. The missing foundation is **deterministic, obvious control**: arms up → something unmistakable happens (and keeps happening while up). Ball → something unmistakable (and keeps happening while curled). Stomp → something. First make it feel like an instrument with clear cause-and-effect. THEN add weighted pools for variety. THEN layer the arc on top for journey. Building indeterminacy before control is backwards — you can't feel surprise if you don't first feel agency.
