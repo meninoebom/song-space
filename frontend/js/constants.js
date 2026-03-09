@@ -58,4 +58,5 @@ export const ACTION_TYPES = [
   'restore',       // edge: restore muted categories with ramp
   'oneshot',       // edge: trigger a one-shot sample
   'filter_sweep',  // edge: sweep a filter over time
+  'set_effect',    // continuous: modulate effect param (filter freq, reverb wet) by reading value
 ];

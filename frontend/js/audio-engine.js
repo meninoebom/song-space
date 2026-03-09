@@ -23,6 +23,7 @@ export class AudioEngine {
     this.oneshotCooldown = 0;
     this.categoryVolumes = {};
     this._triggerMuted = {};   // category → boolean (edge trigger mute state)
+    this._sweepActive = {};    // category → timestamp when sweep ends (set_effect yields)
     this.onLoadProgress = null; // callback(loaded, total)
   }
 
@@ -260,15 +261,35 @@ export class AudioEngine {
     } catch (e) { console.warn(`Oneshot trigger failed (${category}):`, e); }
   }
 
-  /** Sweep a category's lowpass filter frequency over time. */
+  /** Sweep a category's lowpass filter frequency over time (edge action). */
   sweepFilter(category, fromFreq, toFreq, duration) {
     const filter = this.filters[category];
     if (!filter) return;
     try {
+      this._sweepActive[category] = Tone.now() + duration;
       filter.frequency.cancelScheduledValues(Tone.now());
       filter.frequency.rampTo(fromFreq, 0);
       filter.frequency.rampTo(toFreq, duration);
     } catch (e) { console.warn(`Filter sweep failed (${category}):`, e); }
+  }
+
+  /** Set a category's filter frequency directly (continuous tracking, not time-ramp). */
+  setFilterFrequency(category, hz) {
+    const filter = this.filters[category];
+    if (!filter) return;
+    // Yield to active edge sweeps — don't fight them
+    if (this._sweepActive[category] && Tone.now() < this._sweepActive[category]) return;
+    try {
+      filter.frequency.rampTo(hz, 0.05); // tiny ramp to avoid clicks
+    } catch (e) { /* ignore */ }
+  }
+
+  /** Generic effect dispatcher — routes set_effect actions to specific methods. */
+  setEffect(category, effectName, paramName, value) {
+    if (effectName === 'lowpass' && paramName === 'frequency') {
+      this.setFilterFrequency(category, value);
+    }
+    // Future: reverb wet, delay time, etc.
   }
 
   dispose() {

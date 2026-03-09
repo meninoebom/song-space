@@ -39,7 +39,7 @@ export function createDetectionLoop({ detectors, soloReadings, relReadingsEngine
         arc.update(dt, avgVel);
         const phase = arc.getCurrentPhase();
         if (phase) {
-          if (runtime) runtime.update(finalReadings, phase.categories, dt);
+          if (runtime) runtime.update(finalReadings, phase.categories, dt, phase.id);
           onPhaseUpdate(phase);
         }
         drawSkeletons(bodyCanvas, results.landmarks, bodyCount, finalReadings);

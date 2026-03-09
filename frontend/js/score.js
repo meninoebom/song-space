@@ -100,22 +100,22 @@ export const DEFAULT_SCORE = {
       },
 
       // FLOWING: the dreamy state — smooth coherent movement
-      // Detected but no continuous volume action — available for arc triggers + moments.
+      // Filter brightens harmonic bed — airiness, openness.
       {
         id: 'flowing',
         mix: { coherence: 0.6, velocity: 0.4 },
         gate: { velocity: { above: 0.15 }, coherence: { above: 0.35 } },
-        intents: [],
+        intents: [{ intent: 'flowing_effect', mode: 'continuous' }],
       },
 
       // GROUNDED: going underground — low center, bent legs
-      // Detected but no continuous volume action — available for arc triggers + moments.
+      // Filter darkens hooks and texture — warmth, weight.
       {
         id: 'grounded',
         mix: { legBend: 0.4, contraction: 0.3 },
         gate: { velocity: { below: 0.3 } },
         _invertInMix: { verticality: 0.3 },
-        intents: [],
+        intents: [{ intent: 'grounded_effect', mode: 'continuous' }],
       },
 
       // SUSPENDED: held moment at the top — arms high, body still
@@ -147,32 +147,32 @@ export const DEFAULT_SCORE = {
       },
 
       // WIDE: body expands outward — arms spread, open gesture
-      // Detected but no continuous volume action — available for arc triggers + moments.
+      // Filter opens on harmonic bed + texture — spacious, bright.
       {
         id: 'wide',
         mix: { wristSpread: 0.6 },
         gate: { wristSpread: { above: 0.5 }, contraction: { below: 0.4 } },
         _invertInMix: { contraction: 0.4 },
-        intents: [],
+        intents: [{ intent: 'wide_effect', mode: 'continuous' }],
       },
 
       // COMPACT: body gathers inward — coiled, compressed energy
-      // Detected but no continuous volume action — available for arc triggers + moments.
+      // Filter closes on everything — compressed, tight, muffled.
       {
         id: 'compact',
         mix: { contraction: 0.4, legBend: 0.4 },
         gate: { contraction: { above: 0.5 }, velocity: { above: 0.1 } },
         _invertInMix: { wristSpread: 0.2 },
-        intents: [],
+        intents: [{ intent: 'compact_effect', mode: 'continuous' }],
       },
 
       // STEPPING: footwork drives groove — stomps, steps, kicks
-      // Detected but no continuous volume action — available for arc triggers + moments.
+      // Filter opens on groove — rhythm gets crisp, present.
       {
         id: 'stepping',
         mix: { step: 0.7, velocity: 0.3 },
         gate: { step: { above: 0.2 } },
-        intents: [],
+        intents: [{ intent: 'stepping_effect', mode: 'continuous' }],
       },
 
       // EXPLOSIVE: the climax impulse — sudden burst of velocity
@@ -203,24 +203,48 @@ export const DEFAULT_SCORE = {
 
   // --- Intent pools: each intent maps to weighted action options ---
   //
-  // ENERGY-ONLY VOLUME RULE: Only the energy reading sets category volumes.
-  // All other readings express themselves through edge actions (mute, solo,
-  // restore, filter_sweep, oneshot). This prevents readings from killing
-  // energy by silencing channels.
+  // ENERGY-ONLY VOLUME RULE: Only energy sets category volumes.
+  // EFFECT RULE: Body state readings shape the music's character via
+  // continuous filter modulation (set_effect), not volume. The song
+  // mirrors your body — compact closes filters, wide opens them.
+  // Edge readings (stillness, arms_up, suspended, melting, explosive)
+  // use mute/solo/restore/filter_sweep for dramatic moments.
   //
-  // Readings without intents (flowing, grounded, stepping, wide, compact,
-  // unison, opposition) are still detected — they'll drive arc triggers
-  // and moments in the body-driven arc system.
-  //
-  // Edge intents draw randomly from weighted pools.
+  // Continuous intents: highest-weight option, every frame.
+  // Edge intents: random draw from weighted pool, fires once.
 
   intents: {
 
-    // === CONTINUOUS ===
+    // === CONTINUOUS: volume + effects ===
 
     // ENERGY: the only volume-setting intent — master fader scaled by velocity
     energy_blend: [
       { action: 'set_volumes', args: { texture: -6, harmonic_bed: -8, bass: -8, foundation: -10, groove: -10, hook: -12, accent: -16 }, weight: 1 },
+    ],
+
+    // FLOWING: filter opens on harmonic bed — airy, bright, dreamy
+    flowing_effect: [
+      { action: 'set_effect', args: { effect: 'lowpass', category: 'harmonic_bed', param: 'frequency', min: 5000, max: 12000 }, weight: 1 },
+    ],
+
+    // GROUNDED: filter closes on hooks + texture — warm, heavy, dark
+    grounded_effect: [
+      { action: 'set_effect', args: { effect: 'lowpass', category: 'hook', param: 'frequency', min: 800, max: 5000 }, weight: 1 },
+    ],
+
+    // WIDE: filter opens on harmonic bed + texture — spacious, expansive
+    wide_effect: [
+      { action: 'set_effect', args: { effect: 'lowpass', category: 'harmonic_bed', param: 'frequency', min: 5000, max: 14000 }, weight: 1 },
+    ],
+
+    // COMPACT: filter closes on everything — compressed, muffled, tight
+    compact_effect: [
+      { action: 'set_effect', args: { effect: 'lowpass', category: '*', param: 'frequency', min: 400, max: 5000 }, weight: 1 },
+    ],
+
+    // STEPPING: filter opens on groove — rhythm gets crisp, present
+    stepping_effect: [
+      { action: 'set_effect', args: { effect: 'lowpass', category: 'groove', param: 'frequency', min: 5000, max: 12000 }, weight: 1 },
     ],
 
     // === EDGE: dramatic moments ===

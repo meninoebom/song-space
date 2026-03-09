@@ -17,6 +17,7 @@
  *   isTriggerMuted(category) → boolean
  *   triggerOneshot(category, volumeDb)
  *   sweepFilter(category, fromHz, toHz, durationSeconds)
+ *   setEffect(category, effectName, paramName, value)
  *   loaded → boolean
  *
  * "Draw" is Ralf's term for weighted random selection from an intent pool.
@@ -63,8 +64,9 @@ export class RalfRuntime {
    * @param {Array} readings — [{ id, value, active }]
    * @param {Array} phaseCategories — allowed categories from arc phase
    * @param {number} dt — seconds since last frame
+   * @param {string} [phaseId] — current arc phase id (for phaseOverrides)
    */
-  update(readings, phaseCategories, dt = 1 / 30) {
+  update(readings, phaseCategories, dt = 1 / 30, phaseId = null) {
     if (!this.engine.loaded) return;
 
     const readingMap = {};
@@ -82,10 +84,15 @@ export class RalfRuntime {
       const wasActive = this._edgeState[config.id] ?? false;
       this._edgeState[config.id] = isActive;
 
+      // Merge phase overrides if present
+      const effectiveIntents = (phaseId && config.phaseOverrides?.[phaseId]?.intents)
+        ? config.phaseOverrides[phaseId].intents
+        : config.intents;
+
       // Process intents
-      if (config.intents) {
-        for (let idx = 0; idx < config.intents.length; idx++) {
-          const intent = config.intents[idx];
+      if (effectiveIntents) {
+        for (let idx = 0; idx < effectiveIntents.length; idx++) {
+          const intent = effectiveIntents[idx];
           const key = `${config.id}:${idx}`;
 
           if (intent.mode === 'continuous') {
@@ -155,6 +162,16 @@ export class RalfRuntime {
           contributions[cat] += best.args[cat] * w;
         } else {
           contributions[cat] += (quietVolumes[cat] ?? -40) * w;
+        }
+      }
+    } else if (best.action === 'set_effect' && best.args) {
+      // Interpolate effect parameter by reading value (0→min, 1→max)
+      const { effect, category, param, min, max } = best.args;
+      const value = min + (max - min) * reading.value;
+      const targets = category === '*' ? phaseCategories : [category];
+      for (const cat of targets) {
+        if (phaseCategories.includes(cat)) {
+          this.engine.setEffect(cat, effect, param, value);
         }
       }
     }
@@ -230,6 +247,18 @@ export class RalfRuntime {
       case 'filter_sweep':
         if (option.args) {
           this.engine.sweepFilter(option.args.category, option.args.from, option.args.to, option.args.duration);
+        }
+        break;
+
+      case 'set_effect':
+        if (option.args) {
+          const { effect, category, param, min, max } = option.args;
+          const targets = category === '*' ? phaseCategories : [category];
+          for (const cat of targets) {
+            if (phaseCategories.includes(cat)) {
+              this.engine.setEffect(cat, effect, param, option.args.value ?? max);
+            }
+          }
         }
         break;
 
