@@ -209,3 +209,23 @@ Remaining 3 need new qualities (lateralOscillation, velocityPeriodicity, pathCur
 ### Velocity max pin: noise_floor / max_pin < gate_threshold - HYSTERESIS_BAND
 **Formula:** For stillness gate (velocity below 0.12, hysteresis 0.05): MediaPipe jitter ~0.0005, so max_pin must be > 0.0005 / (0.12 - 0.05) = 0.007. Pin of 0.01 was marginal (jitter normalized to ~0.05, barely below 0.07). Pin of 0.05 works cleanly (jitter normalizes to ~0.01).
 **Critical:** Pin BOTH before AND after normalize — normalize uses the old max if you only pin after.
+
+## 2026-03-09 - Score tuning: five iterations to effects + bring-in/take-out
+
+### Volume control belongs to the composer, not readings
+Five iterations converged on: only the `energy` reading sets category volumes. All other readings shape music through effects (continuous filter tracking) and bring-in/take-out (mute/restore on enter/exit). Volume manipulation from multiple readings creates mud — they fight each other for the same channels.
+
+### Per-category weight tracking prevents blending bugs
+Global `totalWeight` in volume blending drags unmentioned categories to silence. When a fader mentions 2 of 7 categories, the other 5 get weighted toward quietVolumes (-50dB). Fix: track `catWeights[cat]` per category. Faders only contribute to categories they explicitly mention. Energy fills all unmentioned ones as the base mix.
+
+### Filter direction matters: min is default, max is full-effect
+`set_effect` with `min: 400, max: 5000` means at full reading strength, filter is at 5000Hz — the DEFAULT. No audible change. For darkening effects (compact, grounded), use `min: 5000, max: 300` so full activation = 300Hz = very muffled.
+
+### Continuous effects need reset on reading deactivate
+Without explicit reset, filters stick at their last position when a reading turns off. Added `_resetContinuousEffect()` that snaps all set_effect params back to `min` (the "default / no-effect" end of the range) on the falling edge.
+
+### Sweep conflict tracking prevents effect jitter
+Edge `filter_sweep` and continuous `set_effect` fighting over the same filter = audible jitter. Track `_sweepActive[category] = Tone.now() + duration`. `setFilterFrequency` yields while a sweep is active.
+
+### Effects + mute/restore is the right vocabulary for readings
+The progression: all-volume → sculpted-volume → filters-only → effects+mute/restore. Each iteration was more expressive and less muddy. The final vocabulary: effects (continuous filter modulation tracking reading value), bring-in (restore on enter), take-out (mute on exit), draws (weighted random pool on edge). This maps cleanly to Ralf's intent system.
