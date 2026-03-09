@@ -73,9 +73,10 @@ export class RalfRuntime {
     for (const r of readings) readingMap[r.id] = r;
 
     // Collect volume targets from continuous intents for blending
-    let totalWeight = 0;
+    // Per-category weighting: faders only affect categories they mention
     const contributions = {};
-    for (const cat of CATEGORIES) contributions[cat] = 0;
+    const catWeights = {};
+    for (const cat of CATEGORIES) { contributions[cat] = 0; catWeights[cat] = 0; }
     const quietVolumes = this.score.mappings?.quietVolumes;
 
     for (const config of this.score.readings) {
@@ -98,8 +99,7 @@ export class RalfRuntime {
           if (intent.mode === 'continuous') {
             // Fire every frame while active
             if (isActive && reading.value > 0.05) {
-              this._fireContinuousIntent(intent.intent, reading, phaseCategories, contributions);
-              totalWeight += reading.value;
+              this._fireContinuousIntent(intent.intent, reading, phaseCategories, contributions, catWeights);
             }
           } else {
             // Edge mode (default)
@@ -140,17 +140,17 @@ export class RalfRuntime {
       }
     }
 
-    // Apply blended continuous volumes
+    // Apply blended continuous volumes (per-category weighting)
     if (quietVolumes) {
       for (const cat of CATEGORIES) {
-        let vol = totalWeight > 0 ? contributions[cat] / totalWeight : quietVolumes[cat];
+        let vol = catWeights[cat] > 0 ? contributions[cat] / catWeights[cat] : quietVolumes[cat];
         if (!phaseCategories.includes(cat)) vol = -60;
         this.engine.setCategoryVolume(cat, vol);
       }
     }
   }
 
-  _fireContinuousIntent(intentName, reading, phaseCategories, contributions) {
+  _fireContinuousIntent(intentName, reading, phaseCategories, contributions, catWeights) {
     const pool = this._getPool(intentName);
     if (!pool || pool.length === 0) return;
 
@@ -168,10 +168,15 @@ export class RalfRuntime {
       const quietVolumes = this.score.mappings?.quietVolumes || {};
       for (const cat of CATEGORIES) {
         if (best.args[cat] !== undefined) {
+          // Fader has an opinion about this category — contribute it
           contributions[cat] += best.args[cat] * w;
-        } else {
+          catWeights[cat] += w;
+        } else if (intentName === 'energy_blend') {
+          // Energy is the base mix — fills in all unmentioned categories
           contributions[cat] += (quietVolumes[cat] ?? -40) * w;
+          catWeights[cat] += w;
         }
+        // Other faders: no opinion → no contribution (don't drag to silence)
       }
     } else if (best.action === 'set_effect' && best.args) {
       // Interpolate effect parameter by reading value (0→min, 1→max)
