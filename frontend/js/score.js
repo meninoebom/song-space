@@ -53,10 +53,11 @@ export const DEFAULT_SCORE = {
 
   // --- Readings: body interpretation → intents ---
   //
-  // 6 core readings, each a distinct body state with clear musical meaning.
-  // Every cut reading (swaying, agitated, reaching, coiled, jumping)
-  // is expressible from the same primitives — a Ralf agent can recreate any
-  // of them by recombining qualities, gates, and intents.
+  // 11 readings, each a distinct body state with clear musical meaning.
+  // See docs/solutions/composer-framework.md for the sculpt pattern:
+  // energy paints the whole mix, others sculpt 2-4 categories each,
+  // moment readings (stillness, arms_up, suspended, melting, explosive)
+  // are edge-only.
 
   readings: {
     solo: [
@@ -71,7 +72,8 @@ export const DEFAULT_SCORE = {
       },
 
       // STILLNESS: the narrative anchor — absence creates drama
-      // Layers strip away over time. Exit triggers a slam back.
+      // Edge-only: layers strip away over time. Exit slams back.
+      // No continuous blend — doesn't fight energy for volume control.
       {
         id: 'stillness',
         rampSeconds: 3,
@@ -79,7 +81,6 @@ export const DEFAULT_SCORE = {
         gate: { velocity: { below: 0.12 } },
         _invertInMix: { velocity: 0.3 },
         intents: [
-          { intent: 'stillness_blend', mode: 'continuous' },
           { intent: 'drums_drop', mode: 'edge', after: 2 },
           { intent: 'strip_down', mode: 'edge', after: 5 },
         ],
@@ -87,50 +88,52 @@ export const DEFAULT_SCORE = {
       },
 
       // ARMS UP: the spatial opening — reach overhead, music blooms
-      // Filter sweep on entry/exit creates a theatrical gesture.
+      // Edge-only: filter sweep on entry/exit. The sweep IS the gesture.
       {
         id: 'arms_up',
         mix: { armsRaised: 1.0 },
         gate: { armsRaised: { above: 0.4 } },
         intents: [
-          { intent: 'arms_up_blend', mode: 'continuous' },
           { intent: 'arms_open_filter', mode: 'edge' },
         ],
         on_exit: ['arms_close_filter'],
       },
 
       // FLOWING: the dreamy state — smooth coherent movement
-      // Harmonic layers bloom, groove recedes. Rewards sustained grace.
+      // Detected but no continuous volume action — available for arc triggers + moments.
       {
         id: 'flowing',
         mix: { coherence: 0.6, velocity: 0.4 },
         gate: { velocity: { above: 0.15 }, coherence: { above: 0.35 } },
-        intents: [{ intent: 'flowing_blend', mode: 'continuous' }],
+        intents: [],
       },
 
       // GROUNDED: going underground — low center, bent legs
-      // Bass and foundation swell. Rewards sinking into the floor.
+      // Detected but no continuous volume action — available for arc triggers + moments.
       {
         id: 'grounded',
         mix: { legBend: 0.4, contraction: 0.3 },
         gate: { velocity: { below: 0.3 } },
         _invertInMix: { verticality: 0.3 },
-        intents: [{ intent: 'grounded_blend', mode: 'continuous' }],
+        intents: [],
       },
 
       // SUSPENDED: held moment at the top — arms high, body still
-      // Harmonic sustain, reverb bloom. The breath-hold moment.
+      // Edge-only: solos pads after 2s ramp. Exit restores.
       {
         id: 'suspended',
         rampSeconds: 2,
         mix: { armsRaised: 0.5, verticality: 0.3 },
         gate: { armsRaised: { above: 0.4 }, velocity: { below: 0.25 } },
         _invertInMix: { velocity: 0.2 },
-        intents: [{ intent: 'suspended_blend', mode: 'continuous' }],
+        intents: [
+          { intent: 'suspended_solo', mode: 'edge', after: 2 },
+        ],
+        on_exit: ['suspended_release'],
       },
 
       // MELTING: gradual yielding to gravity — sinking, pouring down
-      // Intimate dissolve. Progressive strip at 3s.
+      // Edge-only: strips rhythm away after 3s ramp. Exit restores gently.
       {
         id: 'melting',
         rampSeconds: 4,
@@ -138,38 +141,38 @@ export const DEFAULT_SCORE = {
         gate: { velocity: { below: 0.2 } },
         _invertInMix: { verticality: 0.5 },
         intents: [
-          { intent: 'melting_blend', mode: 'continuous' },
           { intent: 'melting_strip', mode: 'edge', after: 3 },
         ],
+        on_exit: ['melting_release'],
       },
 
       // WIDE: body expands outward — arms spread, open gesture
-      // Spatial bloom, pads and reverb forward.
+      // Detected but no continuous volume action — available for arc triggers + moments.
       {
         id: 'wide',
         mix: { wristSpread: 0.6 },
         gate: { wristSpread: { above: 0.5 }, contraction: { below: 0.4 } },
         _invertInMix: { contraction: 0.4 },
-        intents: [{ intent: 'wide_blend', mode: 'continuous' }],
+        intents: [],
       },
 
       // COMPACT: body gathers inward — coiled, compressed energy
-      // Groove tightens, percussive detail forward.
+      // Detected but no continuous volume action — available for arc triggers + moments.
       {
         id: 'compact',
         mix: { contraction: 0.4, legBend: 0.4 },
         gate: { contraction: { above: 0.5 }, velocity: { above: 0.1 } },
         _invertInMix: { wristSpread: 0.2 },
-        intents: [{ intent: 'compact_blend', mode: 'continuous' }],
+        intents: [],
       },
 
       // STEPPING: footwork drives groove — stomps, steps, kicks
-      // Fires on each foot strike. Rewards rhythmic footwork.
+      // Detected but no continuous volume action — available for arc triggers + moments.
       {
         id: 'stepping',
         mix: { step: 0.7, velocity: 0.3 },
         gate: { step: { above: 0.2 } },
-        intents: [{ intent: 'stepping_blend', mode: 'continuous' }],
+        intents: [],
       },
 
       // EXPLOSIVE: the climax impulse — sudden burst of velocity
@@ -187,92 +190,42 @@ export const DEFAULT_SCORE = {
         id: 'unison',
         mix: { synchrony: 0.6, aggregate_energy: 0.4 },
         gate: { synchrony: { above: 0.55 } },
-        intents: [{ intent: 'unison_blend', mode: 'continuous' }],
+        intents: [],
       },
       {
         id: 'opposition',
         mix: { contrast: 0.6, aggregate_energy: 0.4 },
         gate: { contrast: { above: 0.4 } },
-        intents: [{ intent: 'opposition_blend', mode: 'continuous' }],
+        intents: [],
       },
     ],
   },
 
   // --- Intent pools: each intent maps to weighted action options ---
-  // Continuous intents use the highest-weight option (deterministic per-frame).
-  // Edge intents draw randomly from the pool.
+  //
+  // ENERGY-ONLY VOLUME RULE: Only the energy reading sets category volumes.
+  // All other readings express themselves through edge actions (mute, solo,
+  // restore, filter_sweep, oneshot). This prevents readings from killing
+  // energy by silencing channels.
+  //
+  // Readings without intents (flowing, grounded, stepping, wide, compact,
+  // unison, opposition) are still detected — they'll drive arc triggers
+  // and moments in the body-driven arc system.
+  //
+  // Edge intents draw randomly from weighted pools.
 
   intents: {
-    // ENERGY: master volume — scales all categories with velocity
-    // At full velocity, everything is present. This is the "full mix" target.
+
+    // === CONTINUOUS ===
+
+    // ENERGY: the only volume-setting intent — master fader scaled by velocity
     energy_blend: [
       { action: 'set_volumes', args: { texture: -6, harmonic_bed: -8, bass: -8, foundation: -10, groove: -10, hook: -12, accent: -16 }, weight: 1 },
     ],
 
-    // STILLNESS: sparse, intimate
-    stillness_blend: [
-      { action: 'set_volumes', args: { texture: -8, harmonic_bed: -12, bass: -20, foundation: -40, groove: -40, hook: -40, accent: -40 }, weight: 1 },
-    ],
+    // === EDGE: dramatic moments ===
 
-    // ARMS UP: bright and open — hooks and harmonics forward
-    arms_up_blend: [
-      { action: 'set_volumes', args: { hook: -4, harmonic_bed: -4, texture: -6, foundation: -8, groove: -8, bass: -8, accent: -10 }, weight: 1 },
-    ],
-
-    // FLOWING: dreamy — harmonic bed and texture forward, groove recedes
-    flowing_blend: [
-      { action: 'set_volumes', args: { harmonic_bed: -4, texture: -6, foundation: -6, bass: -8, groove: -14, hook: -14, accent: -30 }, weight: 3 },
-      { action: 'set_volumes', args: { harmonic_bed: -6, texture: -4, foundation: -8, bass: -6, groove: -16, hook: -16, accent: -30 }, weight: 1 },
-    ],
-
-    // GROUNDED: warm and heavy — bass and foundation forward
-    grounded_blend: [
-      { action: 'set_volumes', args: { bass: -4, foundation: -6, groove: -8, harmonic_bed: -10, texture: -12, hook: -20, accent: -30 }, weight: 3 },
-      { action: 'set_volumes', args: { bass: -2, foundation: -4, groove: -6, harmonic_bed: -12, texture: -14, hook: -22, accent: -30 }, weight: 1 },
-    ],
-
-    // UNISON: hooks and harmony bloom when moving together
-    unison_blend: [
-      { action: 'set_volumes', args: { hook: -4, harmonic_bed: -4, texture: -6, foundation: -8, groove: -10, bass: -8, accent: -16 }, weight: 1 },
-    ],
-
-    // OPPOSITION: groove and accent forward when contrasting
-    opposition_blend: [
-      { action: 'set_volumes', args: { groove: -2, accent: -4, bass: -4, foundation: -6, harmonic_bed: -14, texture: -14, hook: -16 }, weight: 1 },
-    ],
-
-    // SUSPENDED: harmonic sustain — pads and reverb bloom in stillness
-    suspended_blend: [
-      { action: 'set_volumes', args: { harmonic_bed: -2, texture: -4, hook: -6, foundation: -10, bass: -12, groove: -16, accent: -30 }, weight: 1 },
-    ],
-
-    // MELTING: intimate dissolve — texture forward, rhythm fades
-    melting_blend: [
-      { action: 'set_volumes', args: { texture: -4, harmonic_bed: -6, bass: -14, foundation: -16, groove: -20, hook: -20, accent: -40 }, weight: 1 },
-    ],
-    melting_strip: [
-      { action: 'mute', args: { categories: ['groove', 'foundation'], rampTime: 1.0 }, weight: 3 },
-      { action: 'mute', args: { categories: ['groove', 'foundation', 'bass'], rampTime: 1.5 }, weight: 1 },
-    ],
-
-    // WIDE: spatial bloom — pads and reverb expand outward
-    wide_blend: [
-      { action: 'set_volumes', args: { harmonic_bed: -2, texture: -4, hook: -8, foundation: -8, bass: -10, groove: -12, accent: -20 }, weight: 1 },
-    ],
-
-    // STEPPING: rhythm accentuated — groove, percussion, and accents forward
-    stepping_blend: [
-      { action: 'set_volumes', args: { groove: -2, foundation: -4, accent: -6, bass: -6, texture: -14, harmonic_bed: -16, hook: -18 }, weight: 1 },
-    ],
-
-    // COMPACT: groove tightens — percussive detail forward
-    compact_blend: [
-      { action: 'set_volumes', args: { groove: -4, foundation: -6, bass: -6, accent: -8, texture: -14, harmonic_bed: -16, hook: -20 }, weight: 1 },
-    ],
-
-    // --- Edge-triggered intents ---
-
-    // Stillness edges: progressive stripping
+    // Stillness: progressive stripping over time
     drums_drop: [
       { action: 'mute', args: { categories: ['groove', 'bass'], rampTime: 0.3 }, weight: 3 },
       { action: 'mute', args: { categories: ['groove', 'bass', 'foundation'], rampTime: 0.4 }, weight: 1 },
@@ -281,11 +234,35 @@ export const DEFAULT_SCORE = {
       { action: 'solo', args: { categories: ['texture'], rampTime: 0.5 }, weight: 3 },
       { action: 'solo', args: { categories: ['texture', 'harmonic_bed'], rampTime: 0.6 }, weight: 1 },
     ],
-
-    // Stillness exit: energy restores sharply
     energy_slam: [
       { action: 'restore', args: { rampTime: 0.05 }, weight: 3 },
       { action: 'restore', args: { rampTime: 0.15 }, weight: 1 },
+    ],
+
+    // Arms up: filter sweep is the gesture
+    arms_open_filter: [
+      { action: 'filter_sweep', args: { category: 'harmonic_bed', from: 800, to: 5000, duration: 2 }, weight: 1 },
+    ],
+    arms_close_filter: [
+      { action: 'filter_sweep', args: { category: 'harmonic_bed', from: 5000, to: 800, duration: 1.5 }, weight: 1 },
+    ],
+
+    // Suspended: solo the atmosphere after holding still with arms up
+    suspended_solo: [
+      { action: 'solo', args: { categories: ['texture', 'harmonic_bed'], rampTime: 1.0 }, weight: 3 },
+      { action: 'solo', args: { categories: ['texture', 'harmonic_bed', 'hook'], rampTime: 1.2 }, weight: 1 },
+    ],
+    suspended_release: [
+      { action: 'restore', args: { rampTime: 0.8 }, weight: 1 },
+    ],
+
+    // Melting: gentle strip as you yield to gravity
+    melting_strip: [
+      { action: 'mute', args: { categories: ['groove', 'foundation'], rampTime: 1.0 }, weight: 3 },
+      { action: 'mute', args: { categories: ['groove', 'foundation', 'bass'], rampTime: 1.5 }, weight: 1 },
+    ],
+    melting_release: [
+      { action: 'restore', args: { rampTime: 1.5 }, weight: 1 },
     ],
 
     // Explosive: dramatic accent + filter sweep
@@ -293,14 +270,6 @@ export const DEFAULT_SCORE = {
       { action: 'restore', args: { rampTime: 0.02 }, weight: 3 },
       { action: 'oneshot', args: { category: 'accent', volumeDb: -2 }, weight: 2 },
       { action: 'filter_sweep', args: { category: 'groove', from: 500, to: 10000, duration: 1 }, weight: 1 },
-    ],
-
-    // Arms up: filter opens on raise, closes on drop
-    arms_open_filter: [
-      { action: 'filter_sweep', args: { category: 'harmonic_bed', from: 800, to: 5000, duration: 2 }, weight: 1 },
-    ],
-    arms_close_filter: [
-      { action: 'filter_sweep', args: { category: 'harmonic_bed', from: 5000, to: 800, duration: 1.5 }, weight: 1 },
     ],
   },
 
