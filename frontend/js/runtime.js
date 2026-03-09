@@ -123,6 +123,15 @@ export class RalfRuntime {
         }
       }
 
+      // Reset continuous effects on falling edge (filter returns to default)
+      if (!isActive && wasActive && effectiveIntents) {
+        for (const intent of effectiveIntents) {
+          if (intent.mode === 'continuous') {
+            this._resetContinuousEffect(intent.intent, phaseCategories);
+          }
+        }
+      }
+
       // on_exit: fire intents on falling edge
       if (!isActive && wasActive && config.on_exit) {
         for (const intentName of config.on_exit) {
@@ -172,6 +181,21 @@ export class RalfRuntime {
       for (const cat of targets) {
         if (phaseCategories.includes(cat)) {
           this.engine.setEffect(cat, effect, param, value);
+        }
+      }
+    }
+  }
+
+  _resetContinuousEffect(intentName, phaseCategories) {
+    const pool = this._getPool(intentName);
+    if (!pool) return;
+    for (const opt of pool) {
+      if (opt.action === 'set_effect' && opt.args) {
+        const { effect, category, param, min } = opt.args;
+        // Reset to min (the "default / no-effect" end of the range)
+        const targets = category === '*' ? phaseCategories : [category];
+        for (const cat of targets) {
+          this.engine.setEffect(cat, effect, param, min);
         }
       }
     }

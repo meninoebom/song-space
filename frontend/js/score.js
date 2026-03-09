@@ -223,28 +223,31 @@ export const DEFAULT_SCORE = {
     ],
 
     // FLOWING: filter opens on harmonic bed — airy, bright, dreamy
+    // min = default (no effect at low value), max = wide open at full flowing
     flowing_effect: [
-      { action: 'set_effect', args: { effect: 'lowpass', category: 'harmonic_bed', param: 'frequency', min: 5000, max: 12000 }, weight: 1 },
+      { action: 'set_effect', args: { effect: 'lowpass', category: 'harmonic_bed', param: 'frequency', min: 5000, max: 16000 }, weight: 1 },
     ],
 
-    // GROUNDED: filter closes on hooks + texture — warm, heavy, dark
+    // GROUNDED: filter darkens hooks + texture — warm, heavy, underground
+    // min = default, max = dark. Full grounded → 300 Hz on hooks (very muffled)
     grounded_effect: [
-      { action: 'set_effect', args: { effect: 'lowpass', category: 'hook', param: 'frequency', min: 800, max: 5000 }, weight: 1 },
+      { action: 'set_effect', args: { effect: 'lowpass', category: 'hook', param: 'frequency', min: 5000, max: 300 }, weight: 1 },
     ],
 
-    // WIDE: filter opens on harmonic bed + texture — spacious, expansive
+    // WIDE: filter opens on harmonic bed — spacious, expansive, bright
     wide_effect: [
-      { action: 'set_effect', args: { effect: 'lowpass', category: 'harmonic_bed', param: 'frequency', min: 5000, max: 14000 }, weight: 1 },
+      { action: 'set_effect', args: { effect: 'lowpass', category: 'harmonic_bed', param: 'frequency', min: 5000, max: 18000 }, weight: 1 },
     ],
 
-    // COMPACT: filter closes on everything — compressed, muffled, tight
+    // COMPACT: filter closes on everything — compressed, muffled, underwater
+    // Full compact → 300 Hz on all categories (dramatic)
     compact_effect: [
-      { action: 'set_effect', args: { effect: 'lowpass', category: '*', param: 'frequency', min: 400, max: 5000 }, weight: 1 },
+      { action: 'set_effect', args: { effect: 'lowpass', category: '*', param: 'frequency', min: 5000, max: 300 }, weight: 1 },
     ],
 
-    // STEPPING: filter opens on groove — rhythm gets crisp, present
+    // STEPPING: filter opens on groove — rhythm gets crisp, hi-hats sparkle
     stepping_effect: [
-      { action: 'set_effect', args: { effect: 'lowpass', category: 'groove', param: 'frequency', min: 5000, max: 12000 }, weight: 1 },
+      { action: 'set_effect', args: { effect: 'lowpass', category: 'groove', param: 'frequency', min: 5000, max: 16000 }, weight: 1 },
     ],
 
     // === EDGE: dramatic moments ===
