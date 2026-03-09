@@ -247,5 +247,48 @@ If the trigger *feel* is uncertain, spike F3 with one hardcoded trigger before b
 | T8 | #33 | ✅ PR #44 merged |
 | T9 | #34 | ✅ PR #45 |
 
-## Next Step
-All Ralf runtime rework tickets complete. Manual score tuning with `make dev` is the remaining UX work (issue #18).
+## Roadmap: Three Systems (from 2026-03-09 session)
+
+### Design Principles (hard-won from iteration)
+- **No volume manipulation from readings** — volume is the composer's domain. Energy sets the base mix, that's it.
+- **Readings express through effects (filters) + bring-in/take-out (mute/restore)**
+- **Three categories of response**: faders→effects, triggers, draws
+
+### System 1: Immediate Body State Responses (IN PROGRESS)
+Body states shape the music through **effects** (continuous filter tracking) and **bring-in/take-out** (mute/restore on enter/exit). No volume.
+
+| Reading | On enter | While active | On exit |
+|---------|----------|-------------|---------|
+| arms_up | filter sweep up + restore hook | — | filter sweep down + mute hook |
+| compact | mute hook+texture | filter closes on * | restore |
+| wide | restore harmonic_bed | filter opens | mute harmonic_bed |
+| grounded | — | filter darkens hooks | — |
+| flowing | — | filter brightens harmonic_bed | — |
+| stepping | — | filter crisps groove | — |
+| stillness | — | — (edges: drums_drop, strip_down) | energy_slam |
+| suspended | — | — (edge: solo pads after 2s) | restore |
+| melting | — | — (edge: strip after 3s) | restore |
+| explosive | — | — (edge: slam + oneshot + sweep) | — |
+
+### System 2: Body-Driven Arc
+Arc phases advance based on body state triggers, not timers. Each phase defines what body state *unlocks* it. Within a phase, **moments** fire once on first detection of a reading.
+
+```
+await → (energy) → emerge → (flowing) → build → (grounded) → peak → (explosive) →
+breakdown → (stillness) → resolve → (energy) → end
+```
+
+Moments = first-time events within a phase (e.g., "first arms_up in build phase triggers a sweep"). Nesting possible: moments can themselves trigger sub-phase changes.
+
+### System 3: Draws (non-deterministic edge responses)
+Already built. Weighted pools mean the same body action gets a different musical response each time. Need to wire more readings to multi-option pools.
+
+### Implementation Status
+- [x] `set_effect` action type (continuous filter modulation)
+- [x] Filter reset on reading deactivate
+- [x] Per-category volume blending (energy only)
+- [ ] Strip faders, go effects + bring-in/take-out only ← NOW
+- [ ] Arc triggers (reading-based phase advancement)
+- [ ] Moments (first-time events within phases)
+- [ ] Phase overrides (same reading, different effect per phase)
+- [ ] More draw pools for variety

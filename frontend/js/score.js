@@ -228,22 +228,23 @@ export const DEFAULT_SCORE = {
 
     // === BRING-IN / TAKE-OUT: mute/restore on enter/exit ===
 
-    // ARMS UP: bring in hooks + filter sweep
+    // ARMS UP: restore everything (especially beat) + filter sweep opens
     arms_up_enter: [
-      { action: 'restore', args: { rampTime: 0.5 }, weight: 2 },
-      { action: 'filter_sweep', args: { category: 'harmonic_bed', from: 800, to: 8000, duration: 1.5 }, weight: 2 },
+      { action: 'restore', args: { rampTime: 0.3 }, weight: 3 },
+      { action: 'filter_sweep', args: { category: 'harmonic_bed', from: 800, to: 8000, duration: 1.5 }, weight: 1 },
     ],
     arms_up_exit: [
-      { action: 'filter_sweep', args: { category: 'harmonic_bed', from: 8000, to: 800, duration: 1.0 }, weight: 1 },
+      { action: 'filter_sweep', args: { category: 'harmonic_bed', from: 8000, to: 2000, duration: 1.0 }, weight: 1 },
     ],
 
-    // WIDE: bring in harmonic bed
+    // WIDE: restore everything + expansive feel
     wide_enter: [
-      { action: 'restore', args: { rampTime: 0.8 }, weight: 1 },
+      { action: 'restore', args: { rampTime: 0.5 }, weight: 1 },
     ],
     wide_exit: [
       { action: 'mute', args: { categories: ['hook'], rampTime: 1.0 }, weight: 1 },
     ],
+
 
     // COMPACT: strip the highs, go underground
     compact_enter: [

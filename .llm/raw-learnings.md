@@ -189,3 +189,23 @@ Researched LMA (Rudolf Laban's framework) to expand from 6 to 10 readings. Four 
 - **compact** (Laban: bound flow): contraction + legBend + ¬wristSpread, gate: contraction > 0.5 + velocity > 0.1
 
 Remaining 3 need new qualities (lateralOscillation, velocityPeriodicity, pathCurvature): swaying, pulsing, winding. LMA provides a rich, well-established vocabulary for naming body states that maps cleanly to the reading config schema.
+
+## 2026-03-08 - Impulse peak velocity fix + step detection
+
+### Impulse needs peak joint velocity, not mean
+**Problem:** After pinning velocity max at 0.05, impulse stopped triggering on stomps and punches. The 30-frame mean velocity dilutes localized sharp movements — a stomp moves ankles fast but shoulders barely move, so the mean barely spikes.
+**Solution:** Compute `peakVel = Math.max(...allVels)` (max velocity across all joints) alongside `frameVel` (mean). Use peak for impulse detection, mean for the velocity quality. Peak catches any sharp movement anywhere in the body.
+**Code ref:** `frontend/js/movement.js` ~line 275
+
+### Step detection: ankle Y baseline with spike-and-decay
+**Problem:** Needed concrete footwork detection. Abstract rhythmicity (autocorrelation on velocity) was tried and scrapped — too noisy, not meaningful enough to map to music.
+**Solution:** Track ankle Y history (15 frames). Detect foot strikes when current ankle Y exceeds baseline (mean of older frames) by >0.02. Spike-and-decay (0.8 decay factor), 5-frame cooldown between triggers. Works well for stomps and rhythmic stepping.
+**Key insight:** Concrete event detection (step = ankle drops) beats abstract periodicity analysis (autocorrelation). The musical mapping is clearer: each step can drive groove/percussion.
+
+### Kick detection: false positive overlap with steps
+**Problem:** Kick (ankle Y rises sharply) fires on the pre-lift phase of normal steps — the foot lifts before it strikes down. Too much overlap.
+**Decision:** Scrapped. Not worth the complexity. Step alone covers the rhythmic footwork use case.
+
+### Velocity max pin: noise_floor / max_pin < gate_threshold - HYSTERESIS_BAND
+**Formula:** For stillness gate (velocity below 0.12, hysteresis 0.05): MediaPipe jitter ~0.0005, so max_pin must be > 0.0005 / (0.12 - 0.05) = 0.007. Pin of 0.01 was marginal (jitter normalized to ~0.05, barely below 0.07). Pin of 0.05 works cleanly (jitter normalizes to ~0.01).
+**Critical:** Pin BOTH before AND after normalize — normalize uses the old max if you only pin after.

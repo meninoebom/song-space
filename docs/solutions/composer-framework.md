@@ -81,7 +81,58 @@ The arc is a default. Composers can customize: add phases, remove them, reorder,
 | Edge triggers | Edge-triggered intents with on_exit |
 | Trigger actions | Actions via translator |
 
-**The arc is the genuinely new concept for Ralf.** Ralf scenes are currently stateless/reactive. The arc adds temporal composition: "given where we are in the piece, what's available?" This is what makes an experience feel like a composed piece rather than an infinite jam.
+**The arc is the genuinely new concept for Ralf.**
+ Ralf scenes are currently stateless/reactive. The arc adds temporal composition: "given where we are in the piece, what's available?" This is what makes an experience feel like a composed piece rather than an infinite jam.
+
+## The Interaction Designer's Deliverables
+
+The interaction designer authors **readings** (body state detection) and **intents** (what each body state does to the music). The primitives are fully reusable — any score can combine them differently.
+
+### The Four-Layer Pipeline
+
+```
+Qualities → Readings → Intents → Actions
+(measurement)  (interpretation)  (desire)    (execution)
+```
+
+- **Qualities** are raw body measurements (velocity, contraction, armsRaised...) — the input contract
+- **Readings** are named body states built from quality combinations + gates (energy, flowing, grounded...)
+- **Intents** are musical desires — what a reading wants the music to do
+- **Actions** are output commands (set_volumes, mute, solo, filter_sweep...) — the output contract
+
+Each layer only talks to its neighbors. Readings never reference categories. Actions never reference qualities.
+
+### Intent Authoring: The Sculpt Pattern
+
+A lesson learned from iteration: when every reading sets all 7 category volumes, multiple active readings blend into mud. The sculpt pattern avoids this:
+
+| Principle | Rule |
+|-----------|------|
+| **One canvas** | A single reading (energy) paints the whole mix — all 7 categories scaled by velocity |
+| **Others sculpt** | Every other continuous intent touches only 2-4 categories: boost its lane, cut the opposite |
+| **Moments are edges** | Readings about dramatic states (stillness, suspension, explosive) use edge actions only — mute/solo/restore/filter_sweep — no continuous volume competition |
+
+This produces clear sonic identity per body state because sculpt readings operate on *different channels*:
+
+| Reading pair | Boost lane | Cut lane |
+|-------------|-----------|---------|
+| flowing / stepping | pads / rhythm | rhythm / pads |
+| grounded / wide | low end / harmonic bed | highs / groove |
+| compact / wide | groove / harmonic bed | harmonic bed / groove |
+
+**The sculpt pattern is a compositional convention, not a system constraint.** The runtime supports any intent shape — a future score could use full 7-category blends if that serves the music. But sculpting produces better results by default because it prevents channel contention between simultaneous readings.
+
+### Reading Behavior Patterns
+
+Three patterns compose freely on a single reading:
+
+| Pattern | Config | Behavior |
+|---------|--------|----------|
+| **Instantaneous** | (default) | Value snaps to mix output when gate opens |
+| **Accumulating** | `rampSeconds: N` | Value grows from 0 → full over N seconds while gate stays open |
+| **Edge-triggered** | `intents[].after: N` | Fires action after N seconds of sustained gate |
+
+Example: stillness uses all three — instantaneous detection, accumulating ramp (3s to full strength), edge intents at 2s and 5s for progressive stripping.
 
 ## Evolution Path
 
