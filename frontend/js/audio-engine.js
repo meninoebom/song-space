@@ -34,8 +34,9 @@ export class AudioEngine {
     // Set Transport BPM so Tone knows the tempo
     Tone.Transport.bpm.value = metadata.bpm || 120;
 
-    // Master chain
-    this.masterFilter = new Tone.Filter({ frequency: 10000, type: 'lowpass', rolloff: -12 }).toDestination();
+    // Master chain: gain → filter → reverb (dry/wet) → destination
+    this.masterReverb = new Tone.Reverb({ decay: 3, wet: 0 }).toDestination();
+    this.masterFilter = new Tone.Filter({ frequency: 10000, type: 'lowpass', rolloff: -12 }).connect(this.masterReverb);
     this.masterGain = new Tone.Gain(0.8).connect(this.masterFilter);
 
     // Per-category gain + filter
@@ -177,6 +178,29 @@ export class AudioEngine {
     this.gains[category].gain.rampTo(Tone.dbToGain(lastDb), rampTime);
   }
 
+  /** Mute a category on the next bar boundary. */
+  muteCategoryQuantized(category, rampTime = 0.3) {
+    if (!this.gains[category]) return;
+    this._triggerMuted[category] = true;
+    Tone.Transport.scheduleOnce((time) => {
+      if (this._triggerMuted[category]) {
+        this.gains[category].gain.rampTo(Tone.dbToGain(-60), rampTime, time);
+      }
+    }, `@${Tone.Transport.timeSignature}n`);
+  }
+
+  /** Restore a category on the next bar boundary. */
+  restoreCategoryQuantized(category, rampTime = 0.05) {
+    if (!this.gains[category]) return;
+    this._triggerMuted[category] = false;
+    const lastDb = this.categoryVolumes[category] ?? -12;
+    Tone.Transport.scheduleOnce((time) => {
+      if (!this._triggerMuted[category]) {
+        this.gains[category].gain.rampTo(Tone.dbToGain(lastDb), rampTime, time);
+      }
+    }, `@${Tone.Transport.timeSignature}n`);
+  }
+
   /** Check if a category is currently muted by an edge trigger. */
   isTriggerMuted(category) {
     return !!this._triggerMuted[category];
@@ -244,17 +268,25 @@ export class AudioEngine {
     }));
   }
 
-  /** Play a one-shot sound from a category. Picks a random loaded player. */
+  /** Play a one-shot sound from a category. Picks a random loaded player.
+   *  Impulse actions punch through mute state — they're unconditional moments.
+   *  Briefly opens the category filter wide so the vocal cuts through the master filter. */
   triggerOneshot(category, volumeDb = -6) {
     const entries = this.players[category];
     if (!entries || entries.length === 0) return;
-    if (this._triggerMuted[category]) return;
     const { player } = entries[Math.floor(Math.random() * entries.length)];
     if (!player.loaded) return;
     try {
       if (this.gains[category]) {
         this.gains[category].gain.rampTo(Tone.dbToGain(volumeDb), 0.05);
         this.gains[category].gain.rampTo(Tone.dbToGain(-60), 2, Tone.now() + 0.5);
+      }
+      // Brief master filter burst — open wide then return to current value
+      // This creates a "window" for the vocal to punch through
+      if (this.masterFilter) {
+        const currentFreq = this.masterFilter.frequency.value;
+        this.masterFilter.frequency.rampTo(16000, 0.05);
+        this.masterFilter.frequency.rampTo(currentFreq, 0.8, Tone.now() + 0.3);
       }
       player.seek(0);
       player.start();
@@ -273,8 +305,14 @@ export class AudioEngine {
     } catch (e) { console.warn(`Filter sweep failed (${category}):`, e); }
   }
 
-  /** Set a category's filter frequency directly (continuous tracking, not time-ramp). */
+  /** Set a category's (or master) filter frequency directly (continuous tracking, not time-ramp). */
   setFilterFrequency(category, hz) {
+    if (category === '*') {
+      // Master filter — affects entire mix
+      if (!this.masterFilter) return;
+      try { this.masterFilter.frequency.rampTo(hz, 0.05); } catch (e) { /* ignore */ }
+      return;
+    }
     const filter = this.filters[category];
     if (!filter) return;
     // Yield to active edge sweeps — don't fight them
@@ -284,12 +322,21 @@ export class AudioEngine {
     } catch (e) { /* ignore */ }
   }
 
+  /** Set master reverb wet/dry mix (0 = dry, 1 = fully wet). */
+  setReverbWet(value) {
+    if (!this.masterReverb) return;
+    try {
+      this.masterReverb.wet.rampTo(Math.max(0, Math.min(1, value)), 0.1);
+    } catch (e) { /* ignore */ }
+  }
+
   /** Generic effect dispatcher — routes set_effect actions to specific methods. */
   setEffect(category, effectName, paramName, value) {
     if (effectName === 'lowpass' && paramName === 'frequency') {
       this.setFilterFrequency(category, value);
+    } else if (effectName === 'reverb' && paramName === 'wet') {
+      this.setReverbWet(value);
     }
-    // Future: reverb wet, delay time, etc.
   }
 
   dispose() {
@@ -305,6 +352,7 @@ export class AudioEngine {
     for (const f of Object.values(this.filters)) { try { f.dispose(); } catch (e) { /* ignore */ } }
     if (this.masterGain) { try { this.masterGain.dispose(); } catch (e) { /* ignore */ } }
     if (this.masterFilter) { try { this.masterFilter.dispose(); } catch (e) { /* ignore */ } }
+    if (this.masterReverb) { try { this.masterReverb.dispose(); } catch (e) { /* ignore */ } }
     this.players = {}; this.gains = {}; this.filters = {}; this.activeIndex = {};
     this.loaded = false; this.metadata = null; this.categoryVolumes = {};
     this._triggerMuted = {};

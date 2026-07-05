@@ -1,294 +1,72 @@
-# Active Plan: Inhabitable Songs
-Last updated: 2026-03-04 (ALL MVP ISSUES COMPLETE #1-7)
+# Active Plan: Body as Arranger
 
-## Problem Statement
-Song Space works but doesn't teach visitors what it responds to — new users see a webcam and hear music but don't discover the cause-and-effect relationship between their body and the song.
+Last updated: 2026-04-02
 
-## Solution
-Add edge-triggered dramatic moments and a declarative **score** (experience config) on top of the existing continuous mapping, default to arc mode so every session feels like a composed song journey, and simplify onboarding to: pick a song → see yourself → move to begin.
+## Design Principles (established this session)
 
-## Bigger Picture: The Composer Framework
-This plan is Stage 2 of the composer framework (see `docs/solutions/composer-framework.md`). A **score** bundles everything needed for an interactive musical experience: the arc (temporal journey), categories (the palette), readings (body interpretations), mappings (continuous bindings), and triggers (edge-triggered moments). The composer provides music + arc. The interaction designer provides bindings. The dancer provides movement. This plan makes the score explicit as config, setting up the framework for Ralf integration and future composer collaboration.
+1. **Volume is the composer's domain.** Fixed mix levels. Dancer never touches the fader.
+2. **Three interaction modes, three timing strategies:**
+   - **Gate** (bring-in/take-out) → quantized to next bar boundary
+   - **Impulse** (one-shot hits) → immediate
+   - **Continuous** (effects: filter, reverb) → every frame
+3. **Atmosphere always plays.** Texture + harmonic_bed are the floor. Never strip below them.
+4. **Music invites movement.** The song should be audible and appealing before the dancer does anything. Movement reshapes the arrangement, not the volume.
+5. **Per-instrument effects over whole-track effects.** Target one category at a time to avoid muddiness.
 
-## Out of Scope
-- Visual design refresh (separate track after interaction model is solid)
-- User-uploaded songs / custom song processing
-- Two-body relational interactions (already works, not changing)
-- Meta-loops / section rewinding
-- User-facing config editor / programming interface
-- Ralf translator integration (inform the design, don't build the bridge)
+## What's Working
 
-## User Stories
+- Quantized mute/restore (lands on the bar) — feels musical
+- Fixed volumes with effects-based interaction
+- Arms up/crossed positions feel responsive
+- "Where Angels Sing" is the primary test track
+- Energy threshold bands for bringing groove/hooks in and out
 
-### MVP
-- **S1.** As a visitor, I want the song to start when I move in front of my webcam, so that I immediately understand my body controls the music.
-- **S2.** As a dancer, I want the song to progress through sections on its own, so that it feels like a real song journey, not a loop machine.
-- **S3.** As a dancer, I want drums to drop out when I stop moving, so that I discover cause-and-effect.
-- **S4.** As a dancer, I want the music to slam back in when I move after being still, so the response feels immediate and exciting.
-- **S5.** As a dancer, I want sustained energy to prolong the current section, so I feel like I can push and pull the journey.
-- **S6.** As a dancer, I want my movement quality (flowing, erratic, reaching) to shape which layers are prominent, so different ways of moving create different textures.
-- **S7.** As a visitor, I want to pick a song and start immediately without configuring modes, so there's no friction.
-- **S8.** As a future composer/interaction designer, I want the experience defined as data (not code), so I can create new experiences by editing config.
+## What's Next — Priority Order
 
-### Later
-- **L1.** As two dancers, I want cooperation/opposition to affect the music (already works, refine later).
-- **L2.** As a power user, I want a debug overlay showing readings and qualities.
-- **L3.** As a creator, I want to upload my own song to create a new space.
-- **L4.** As a dancer, I want to rewind/restart sections to create meta-loops.
-- **L5.** As a visitor, I want an atmospheric, inviting visual design.
+### 1. Suspended drop (highest impact)
+- **Gesture:** Arms up + still (suspended reading, fires after 2s)
+- **On enter:** Solo vocals + harmonic_bed (everything else mutes, quantized to bar)
+- **On release** (start moving): Everything slams back in (instant restore) — the "drop"
+- **Feel:** Dancer holds a moment of tension, then releases it. Repeatable, intentional drama.
 
-## Features
+### 2. Stillness rework (fix silence bug properly)
+- **Current problem:** strip_down goes too sparse, can feel like silence
+- **New behavior:** Still for 2s → mute hooks, texture (leave bass + groove + harmonic_bed)
+- Creates a "stripped back to the beat" feel, not emptiness
+- Moving again restores the full mix
 
-### F1: Zero-Config Onboarding Flow
-Stories: S1, S7
-Acceptance criteria:
-- [ ] Selecting a song auto-starts webcam (no mode dropdown in default UI)
-- [ ] User sees themselves on screen with a subtle prompt to move
-- [ ] AWAIT phase: soft texture plays, movement triggers the song
-- [ ] No Play button or mode selector needed for the default path
-- [ ] Developer/debug mode still accessible (hidden toggle or URL param)
+### 3. Arms up (while moving) → hooks arrive
+- **Gesture:** Arms raised + still moving (different from suspended which requires stillness)
+- **On enter:** Restore hooks + accents (quantized)
+- **On exit:** Mute hooks on next bar
+- **Feel:** Moving with arms up = the "big" version of the song. Arms down = back to basics.
 
-### F2: Living Arc (Autonomous Song Journey)
-Stories: S2, S5
-Acceptance criteria:
-- [ ] Arc is the default and only user-facing mode
-- [ ] Arc progresses through phases automatically even without interaction
-- [ ] Engagement stretches current phase, low engagement compresses it
-- [ ] Song ends naturally after final phase + fade
-- [ ] Arc config is data (part of experience config), not hardcoded
+### 4. Energy → groove enhancement
+- Already partially there (filter brightness at high energy)
+- Push further: foundation gets crisper too at very high energy
+- The feeling of "adding power to the rhythm"
 
-### F3: Edge Trigger System
-Stories: S3, S4
-Acceptance criteria:
-- [ ] Declarative trigger definitions in experience config
-- [ ] **Stillness onset** (~2s): groove/drums drop out
-- [ ] **Deep stillness** (~5s): everything drops to texture-only
-- [ ] **Movement burst** (exit stillness): energy restores sharply
-- [ ] Edge detection uses hysteresis (no flickering near thresholds)
-- [ ] Triggers respect arc phase gating (don't unmute categories the arc hasn't introduced yet)
-- [ ] System evaluates trigger configs generically (not hardcoded if-statements)
+### 5. Future: per-instrument control within categories
+- Currently categories are coarse (groove = all drums together)
+- Bringing kicks vs hi-hats in/out separately would enable finer DJ-like control
+- Requires subcategories or individual track addressing in AudioEngine
+- Direction to explore, not first priority
 
-### F4: Continuous Body-Music Mapping (exists, extract to config)
-Stories: S6
-Acceptance criteria:
-- [ ] Flowing → harmonic/smooth layers prominent
-- [ ] Erratic → groove/accent layers prominent
-- [ ] Reaching → hooks and open textures
-- [ ] Stillness → minimal (texture, quiet harmonic bed)
-- [ ] Mapping table lives in experience config
-- [ ] Works alongside arc phase gating
+## Completed This Session
 
-### F5: Score Config (the composer/interaction designer interface)
-Stories: S8
-Acceptance criteria:
-- [ ] Single "score" config object bundles: arc, readings, mappings, triggers
-- [ ] Default score works for all library songs
-- [ ] Each song in library could optionally ship its own score (future, but structure supports it)
-- [ ] Score shape is documented (references `docs/solutions/composer-framework.md`)
-- [ ] Score is plain JS object (or JSON-compatible) — no classes, no code in config
-- [ ] Naming convention: "score" in user-facing concepts, "experience config" or `DEFAULT_SCORE` in code
+- [x] Diagnosed volume architecture problem (weighted average math, triple attenuation)
+- [x] Removed volume-as-interaction — switched to fixed composer mix
+- [x] Replaced energy volume fader with energy threshold bands (bring-in/take-out)
+- [x] Added quantized mute/restore (bar-aligned transitions)
+- [x] Made flowing more dramatic (wider filter range + reverb on harmonic_bed)
+- [x] Added high-energy groove brightness (continuous filter on groove)
+- [x] Fixed strip_down silence bug (always keep harmonic_bed)
+- [x] Arc phases now include harmonic_bed from the start
+- [x] Removed text prompt hints from arc phases
 
-## Domain Model
+## Architecture Notes
 
-No database. All state is in-browser, per-session. Key data structures:
-
-### ExperienceConfig
-The central config object. Plain data, no behavior.
-```
-{
-  arc: ArcConfig,
-  readings: ReadingConfig[],
-  mappings: MappingTable,
-  triggers: TriggerConfig[]
-}
-```
-
-### ArcConfig (exists as DEFAULT_ARC, extract)
-```
-{
-  phases: [{ id, categories, duration: [min, max] | null, trigger? }],
-  sectionMap: { phaseId: sectionName }
-}
-```
-
-### ReadingConfig (exists as DEFAULT_READINGS, extract)
-```
-{
-  id, mix: { quality: weight },
-  gate: { quality: { above?, below? } },
-  _invertInMix?: { quality: weight }
-}
-```
-
-### MappingTable (exists as VOLUME_MAP, extract)
-```
-{ readingId: { category: dB } }
-```
-
-### TriggerConfig (NEW)
-```
-{
-  id: string,
-  on: readingId,           // which reading to watch
-  edge: 'enter' | 'exit', // rising or falling edge
-  after?: seconds,         // sustain duration before firing (optional)
-  action: TriggerAction    // what to do
-}
-```
-
-### TriggerAction (NEW)
-```
-{
-  mute?: category[],     // mute specific categories
-  solo?: category[],     // solo specific categories (mute everything else)
-  restore?: boolean,     // restore to mapping-driven levels
-  rampTime?: seconds     // transition speed (default: sharp for restore, smooth for mute)
-}
-```
-
-## Key Modules
-
-### ExperienceConfig (new)
-- **Interface:** `DEFAULT_EXPERIENCE` object exported from `experience.js`
-- **Hides:** The bundling of arc + readings + mappings + triggers into one coherent definition
-- **Testable in isolation:** Yes — it's pure data, can be validated structurally
-- **Ralf connection:** Maps to a simplified Scene config. Arc is the new concept Ralf doesn't have yet.
-
-### ArcEngine (exists, refactor)
-- **Interface:** `update(dt, velocity)` → advances phases; `getCurrentPhase()` → current state
-- **Hides:** Engagement tracking, phase duration scaling, phase transitions
-- **Change:** Read config from ExperienceConfig instead of module-level constant
-- **Testable in isolation:** Yes — feed it dt + velocity, assert phase transitions
-
-### TriggerEngine (new — the key deep module)
-- **Interface:** `update(readings)` → evaluates all triggers, returns list of actions to execute
-- **Hides:** Edge detection state, sustain timers, hysteresis, interaction with arc phase gating
-- **Design:** Stateful — tracks per-trigger edge state and sustain timers. Evaluates declarative trigger configs. Returns actions but does NOT execute them (caller applies to audio engine).
-- **Testable in isolation:** Yes — feed it readings sequences, assert which actions fire when
-- **Ralf connection:** Simplified version of Ralf's intent resolution + edge state tracking
-
-### ReadingsEngine (exists, no change)
-- **Interface:** `update(qualities)` → `[{ id, value, active }]`
-- **Hides:** Weighted mixing, hysteresis gating, smoothing
-- **Change:** Accept config from ExperienceConfig at construction
-
-### MappingEngine (exists as function, minor refactor)
-- **Interface:** `applyMapping(readings, engine, allowedCategories, mappingTable)`
-- **Hides:** Volume blending math, baseline handling, phase gating
-- **Change:** Accept mapping table as parameter instead of module-level constant
-
-### AudioEngine (exists, minor additions)
-- **Interface:** `setCategoryVolume(cat, dB)`, `muteCategory(cat)`, `restoreCategory(cat)`
-- **Change:** Add `muteCategory` and `restoreCategory` for trigger actions (sharp transitions vs smooth ramps)
-- **Hides:** Tone.js loop management, transport sync, volume ramping
-
-### App Orchestrator (exists as app.js, simplify)
-- **Interface:** Wires everything together. The only file that knows about all modules.
-- **Change:** Remove mode switching. Default to arc. Wire trigger engine into detection loop.
-- **Simplification target:** app.js currently has mode logic, skeleton drawing, debug panel, arc handlers all mixed together. Goal: app.js becomes ~100 lines of wiring, delegates everything.
-
-## Polishing Requirements
-- [ ] Edge triggers feel musical (test by dancing — does the drop feel intentional or glitchy?)
-- [ ] Webcam permission denial handled gracefully (message, not crash)
-- [ ] Song loading failures show clear feedback
-- [ ] Arc completion feels like an ending (fade is satisfying, not abrupt)
-- [ ] No visible config/developer UI in default experience (debug behind toggle)
-- [ ] Triggers respect arc — don't unmute drums during AWAIT phase
-
-## Validation
-
-| Story | Feature | Module | Config |
-|-------|---------|--------|--------|
-| S1 (move to start) | F1 | App Orchestrator, ArcEngine (AWAIT) | arc.phases[0].trigger |
-| S2 (song journey) | F2 | ArcEngine | arc.phases, arc.sectionMap |
-| S3 (drums drop) | F3 | TriggerEngine | triggers[0]: stillness enter |
-| S4 (energy slam) | F3 | TriggerEngine | triggers[2]: stillness exit |
-| S5 (stretch section) | F2 | ArcEngine | arc.phases[].duration |
-| S6 (quality → texture) | F4 | MappingEngine, ReadingsEngine | mappings, readings |
-| S7 (no config) | F1 | App Orchestrator | — |
-| S8 (data not code) | F5 | ExperienceConfig | the whole config |
-
-All MVP stories have supporting features, modules, and config paths. ✓
-No modules exist without a supporting story. ✓
-TriggerEngine is the only genuinely new module. ✓
-
-## Implementation Notes
-
-### Ralf Transferability
-- **ExperienceConfig** → simplified Ralf Scene (readings + intents + actions, minus translator)
-- **ArcConfig** → NEW concept for Ralf: temporal composition layer (scene sequences with transition rules)
-- **TriggerConfig** → maps to Ralf's edge-triggered intents with on_exit
-- **MappingTable** → maps to Ralf's continuous-mode intents
-- The arc is the genuinely new idea. Ralf scenes are stateless/reactive. The arc adds: "given where we are in the piece, what's available?"
-
-### Build Order (dependency-driven)
-1. **#1 — F5: Score Config** — ✅ PR #8 merged. `frontend/js/score.js` created.
-2. **#2 — F4: Mapping refactor** — ✅ PR #9. Pure function, no module-level constants.
-3. **#3 — F2: Arc refactor** — ✅ PR #9. Requires explicit config, no default.
-4. **#4 — AudioEngine additions** — ✅ PR #9. muteCategory/restoreCategory/isTriggerMuted added.
-5. **#5 — F3: TriggerEngine** — ✅ PR #10. 24 tests passing. Declarative trigger evaluation.
-6. **#6 — F3: Wire + tune triggers** — ✅ PR #11. TriggerEngine wired into detection loop, applyTriggerActions helper (15 tests). Tuning deferred to manual testing.
-7. **#7 — F1: Zero-config onboarding** — ✅ PR #12. app.js 479→178 lines. Extracted webcam.js, skeleton.js, debug.js. Default flow: pick song → move to begin.
-
-### What to spike first
-If the trigger *feel* is uncertain, spike F3 with one hardcoded trigger before building the full declarative system. Validate the timing feels musical, then generalize.
-
-### Ralf Runtime Rework
-
-| Ticket | Issue | Status |
-|--------|-------|--------|
-| T1 | #23 | ✅ PR #27 merged |
-| T2 | #24 | ✅ PR #37 merged |
-| T3 | #25 | PR #39 |
-| T4 | #26 | PR #40 |
-| T5 | #28 | PR #41 |
-| T6 | #30 | PR #42 |
-| T7 | #31 | ✅ PR #43 |
-| T8 | #33 | ✅ PR #44 merged |
-| T9 | #34 | ✅ PR #45 |
-
-## Roadmap: Three Systems (from 2026-03-09 session)
-
-### Design Principles (hard-won from iteration)
-- **No volume manipulation from readings** — volume is the composer's domain. Energy sets the base mix, that's it.
-- **Readings express through effects (filters) + bring-in/take-out (mute/restore)**
-- **Three categories of response**: faders→effects, triggers, draws
-
-### System 1: Immediate Body State Responses (IN PROGRESS)
-Body states shape the music through **effects** (continuous filter tracking) and **bring-in/take-out** (mute/restore on enter/exit). No volume.
-
-| Reading | On enter | While active | On exit |
-|---------|----------|-------------|---------|
-| arms_up | filter sweep up + restore hook | — | filter sweep down + mute hook |
-| compact | mute hook+texture | filter closes on * | restore |
-| wide | restore harmonic_bed | filter opens | mute harmonic_bed |
-| grounded | — | filter darkens hooks | — |
-| flowing | — | filter brightens harmonic_bed | — |
-| stepping | — | filter crisps groove | — |
-| stillness | — | — (edges: drums_drop, strip_down) | energy_slam |
-| suspended | — | — (edge: solo pads after 2s) | restore |
-| melting | — | — (edge: strip after 3s) | restore |
-| explosive | — | — (edge: slam + oneshot + sweep) | — |
-
-### System 2: Body-Driven Arc
-Arc phases advance based on body state triggers, not timers. Each phase defines what body state *unlocks* it. Within a phase, **moments** fire once on first detection of a reading.
-
-```
-await → (energy) → emerge → (flowing) → build → (grounded) → peak → (explosive) →
-breakdown → (stillness) → resolve → (energy) → end
-```
-
-Moments = first-time events within a phase (e.g., "first arms_up in build phase triggers a sweep"). Nesting possible: moments can themselves trigger sub-phase changes.
-
-### System 3: Draws (non-deterministic edge responses)
-Already built. Weighted pools mean the same body action gets a different musical response each time. Need to wire more readings to multi-option pools.
-
-### Implementation Status
-- [x] `set_effect` action type (continuous filter modulation)
-- [x] Filter reset on reading deactivate
-- [x] Per-category volume blending (energy only)
-- [ ] Strip faders, go effects + bring-in/take-out only ← NOW
-- [ ] Arc triggers (reading-based phase advancement)
-- [ ] Moments (first-time events within phases)
-- [ ] Phase overrides (same reading, different effect per phase)
-- [ ] More draw pools for variety
+- `fixedVolumes` in score mappings → runtime sets these per frame (replaces quietVolumes/energy_blend)
+- `muteCategoryQuantized` / `restoreCategoryQuantized` on AudioEngine → schedule on `@${timeSignature}n`
+- Runtime checks `quantize: false` in action args to bypass (used for energy_slam instant restore)
+- Continuous intents now fire ALL set_effect actions in pool (not just highest-weight)

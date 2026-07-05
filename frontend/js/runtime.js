@@ -72,12 +72,13 @@ export class RalfRuntime {
     const readingMap = {};
     for (const r of readings) readingMap[r.id] = r;
 
-    // Collect volume targets from continuous intents for blending
-    // Per-category weighting: faders only affect categories they mention
+    // Fixed volumes — set once per frame from composer's mix
+    const fixedVolumes = this.score.mappings?.fixedVolumes;
+    // Legacy support for quietVolumes-based blending
+    const quietVolumes = this.score.mappings?.quietVolumes;
     const contributions = {};
     const catWeights = {};
     for (const cat of CATEGORIES) { contributions[cat] = 0; catWeights[cat] = 0; }
-    const quietVolumes = this.score.mappings?.quietVolumes;
 
     for (const config of this.score.readings) {
       const reading = readingMap[config.id];
@@ -140,8 +141,15 @@ export class RalfRuntime {
       }
     }
 
-    // Apply blended continuous volumes (per-category weighting)
-    if (quietVolumes) {
+    // Apply volumes
+    if (fixedVolumes) {
+      // Fixed mix — composer sets volumes, dancer shapes via effects + mute/restore
+      for (const cat of CATEGORIES) {
+        const vol = phaseCategories.includes(cat) ? (fixedVolumes[cat] ?? -12) : -60;
+        this.engine.setCategoryVolume(cat, vol);
+      }
+    } else if (quietVolumes) {
+      // Legacy: blended continuous volumes
       for (const cat of CATEGORIES) {
         let vol = catWeights[cat] > 0 ? contributions[cat] / catWeights[cat] : quietVolumes[cat];
         if (!phaseCategories.includes(cat)) vol = -60;
@@ -154,38 +162,35 @@ export class RalfRuntime {
     const pool = this._getPool(intentName);
     if (!pool || pool.length === 0) return;
 
-    // For continuous intents, use highest-weight option (deterministic)
-    // to avoid jarring random changes every frame
-    let best = null;
+    // Fire all set_effect actions in the pool (they stack — filter + reverb etc.)
+    // For set_volumes, use highest-weight option (deterministic, one fader wins)
     for (const opt of pool) {
       if (opt.weight <= 0) continue;
-      if (!best || opt.weight > best.weight) best = opt;
-    }
-    if (!best) return;
 
-    if (best.action === 'set_volumes' && best.args) {
-      const w = reading.value;
-      const quietVolumes = this.score.mappings?.quietVolumes || {};
-      for (const cat of CATEGORIES) {
-        if (best.args[cat] !== undefined) {
-          // Fader has an opinion about this category — contribute it
-          contributions[cat] += best.args[cat] * w;
-          catWeights[cat] += w;
-        } else if (intentName === 'energy_blend') {
-          // Energy is the base mix — fills in all unmentioned categories
-          contributions[cat] += (quietVolumes[cat] ?? -40) * w;
-          catWeights[cat] += w;
+      if (opt.action === 'set_volumes' && opt.args) {
+        const w = reading.value;
+        const quietVols = this.score.mappings?.quietVolumes || {};
+        for (const cat of CATEGORIES) {
+          const target = opt.args[cat] ?? (intentName === 'energy_blend' ? (quietVols[cat] ?? -40) : undefined);
+          if (target !== undefined) {
+            const floor = quietVols[cat] ?? -40;
+            contributions[cat] += (floor + (target - floor) * w);
+            catWeights[cat] += 1;
+          }
         }
-        // Other faders: no opinion → no contribution (don't drag to silence)
-      }
-    } else if (best.action === 'set_effect' && best.args) {
-      // Interpolate effect parameter by reading value (0→min, 1→max)
-      const { effect, category, param, min, max } = best.args;
-      const value = min + (max - min) * reading.value;
-      const targets = category === '*' ? phaseCategories : [category];
-      for (const cat of targets) {
-        if (phaseCategories.includes(cat)) {
-          this.engine.setEffect(cat, effect, param, value);
+        break; // only one volume action per intent
+      } else if (opt.action === 'set_effect' && opt.args) {
+        const { effect, category, param, min, max } = opt.args;
+        const value = min + (max - min) * reading.value;
+        if (category === '*' && (effect === 'reverb' || effect === 'lowpass')) {
+          this.engine.setEffect('*', effect, param, value);
+        } else {
+          const targets = category === '*' ? phaseCategories : [category];
+          for (const cat of targets) {
+            if (phaseCategories.includes(cat)) {
+              this.engine.setEffect(cat, effect, param, value);
+            }
+          }
         }
       }
     }
@@ -198,9 +203,13 @@ export class RalfRuntime {
       if (opt.action === 'set_effect' && opt.args) {
         const { effect, category, param, min } = opt.args;
         // Reset to min (the "default / no-effect" end of the range)
-        const targets = category === '*' ? phaseCategories : [category];
-        for (const cat of targets) {
-          this.engine.setEffect(cat, effect, param, min);
+        if (category === '*' && (effect === 'reverb' || effect === 'lowpass')) {
+          this.engine.setEffect('*', effect, param, min);
+        } else {
+          const targets = category === '*' ? phaseCategories : [category];
+          for (const cat of targets) {
+            this.engine.setEffect(cat, effect, param, min);
+          }
         }
       }
     }
@@ -242,9 +251,12 @@ export class RalfRuntime {
 
       case 'mute':
         if (option.args?.categories) {
+          const muteFn = option.args?.quantize !== false
+            ? (c, r) => this.engine.muteCategoryQuantized(c, r)
+            : (c, r) => this.engine.muteCategory(c, r);
           for (const cat of option.args.categories) {
             if (phaseCategories.includes(cat)) {
-              this.engine.muteCategory(cat, ramp);
+              muteFn(cat, ramp);
             }
           }
         }
@@ -253,19 +265,29 @@ export class RalfRuntime {
       case 'solo':
         if (option.args?.categories) {
           const muteTargets = phaseCategories.filter(c => !option.args.categories.includes(c));
+          const soloMuteFn = option.args?.quantize !== false
+            ? (c, r) => this.engine.muteCategoryQuantized(c, r)
+            : (c, r) => this.engine.muteCategory(c, r);
           for (const cat of muteTargets) {
-            this.engine.muteCategory(cat, ramp);
+            soloMuteFn(cat, ramp);
           }
         }
         break;
 
-      case 'restore':
-        for (const cat of phaseCategories) {
+      case 'restore': {
+        const restoreTargets = option.args?.categories
+          ? option.args.categories.filter(c => phaseCategories.includes(c))
+          : phaseCategories;
+        const restoreFn = option.args?.quantize !== false
+          ? (c, r) => this.engine.restoreCategoryQuantized(c, r)
+          : (c, r) => this.engine.restoreCategory(c, r);
+        for (const cat of restoreTargets) {
           if (this.engine.isTriggerMuted(cat)) {
-            this.engine.restoreCategory(cat, ramp);
+            restoreFn(cat, ramp);
           }
         }
         break;
+      }
 
       case 'oneshot':
         if (option.args?.category) {
@@ -282,10 +304,14 @@ export class RalfRuntime {
       case 'set_effect':
         if (option.args) {
           const { effect, category, param, min, max } = option.args;
-          const targets = category === '*' ? phaseCategories : [category];
-          for (const cat of targets) {
-            if (phaseCategories.includes(cat)) {
-              this.engine.setEffect(cat, effect, param, option.args.value ?? max);
+          if (category === '*' && (effect === 'reverb' || effect === 'lowpass')) {
+            this.engine.setEffect('*', effect, param, option.args.value ?? max);
+          } else {
+            const targets = category === '*' ? phaseCategories : [category];
+            for (const cat of targets) {
+              if (phaseCategories.includes(cat)) {
+                this.engine.setEffect(cat, effect, param, option.args.value ?? max);
+              }
             }
           }
         }

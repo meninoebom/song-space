@@ -41,6 +41,23 @@ The Replicate models (Demucs for stems, allin1 for song structure) are pre-train
 **Problem:** Some vocal loops started with a loud word fragment then were 90% dead air.
 **Solution:** If first 20% of a loop contains >75% of total energy, skip it.
 
+## Breakthrough: No Volume Manipulation from Readings (2026-03-09)
+
+**Problem:** Energy as continuous volume control made everything feel random — 7 faders tied to a noisy velocity signal created constant low-level pulsing. Multiple readings fighting over volume made the mix feel chaotic, not intentional.
+
+**Solution:** Volume is the composer's domain. Period. No reading touches volume. Fixed mix levels in `quietVolumes`, dancer shapes sound through effects only.
+
+**Three interaction modes — the complete vocabulary:**
+1. **Continuous** — proportional tracking (more movement = more effect). Use: master filter (movement opens/closes the mix brightness). Like a fader but for timbre, not volume.
+2. **Gate** — binary state you inhabit (enter = effect on, exit = effect off). Use: master reverb (arms up = wash in, arms down = dry). Like stepping into/out of a room.
+3. **Impulse** — fire-and-forget moment (single punctuating event). Use: oneshot sample trigger. Like hitting a drum.
+
+**Key insight:** Each mode should own its own effect domain so they can't fight each other. Filter = continuous, reverb = gate, oneshot = impulse. Clean separation.
+
+**Validated by dancing (proof score):** Continuous filter and gate reverb felt immediately musical. The muffled→bright filter tracking was obvious and satisfying. Reverb wash on arms_up felt like stepping into a cathedral. Impulse (vocal oneshot) needs more work — not audible enough through speakers.
+
+**Principle:** When something feels random, it's probably because too many things are moving at once with no clear cause-and-effect. Strip to one interaction per mode, make each one undeniable, then layer.
+
 ## Ralf Runtime Rework (2026-03-06)
 
 **Problem:** The original pipeline used three separate modules (mapping.js, trigger-engine.js, trigger-actions.js) with different calling conventions. This made the interaction model hard to reason about and didn't match Ralf's scene config schema.

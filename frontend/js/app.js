@@ -8,7 +8,7 @@ import { ReadingsEngine } from './readings.js';
 import { ArcEngine } from './arc.js';
 import { RalfRuntime } from './runtime.js';
 import { CATEGORIES } from './constants.js';
-import { DEFAULT_SCORE } from './score.js';
+import { DEFAULT_SCORE, PROOF_SCORE } from './score.js';
 import { PhaseIndicator } from './phase-indicator.js';
 import { ReadingsMeter } from './readings-meter.js';
 import { StageDirections } from './stage-directions.js';
@@ -19,15 +19,17 @@ const API_URL = window.location.hostname === 'localhost' || window.location.host
   ? window.location.origin
   : 'https://song-blender-api-production.up.railway.app';
 
-const DEBUG = new URLSearchParams(window.location.search).has('debug');
+const params = new URLSearchParams(window.location.search);
+const DEBUG = params.has('debug');
+const SCORE = params.get('score') === 'proof' ? PROOF_SCORE : DEFAULT_SCORE;
 
 const engine = new AudioEngine();
 const picker = new SongPicker(document.getElementById('song-picker'), API_URL);
 const grid = new LoopGrid(document.getElementById('loop-grid'));
 let runtime = null;
 const detectors = [new MovementDetector(), new MovementDetector()];
-const soloReadings = [new ReadingsEngine(DEFAULT_SCORE.readings.solo), new ReadingsEngine(DEFAULT_SCORE.readings.solo)];
-const relReadingsEngine = new ReadingsEngine(DEFAULT_SCORE.readings.relational);
+const soloReadings = [new ReadingsEngine(SCORE.readings.solo), new ReadingsEngine(SCORE.readings.solo)];
+const relReadingsEngine = new ReadingsEngine(SCORE.readings.relational);
 
 const status = document.getElementById('status');
 const phaseEl = document.getElementById('phase-indicator');
@@ -92,9 +94,9 @@ picker.onSongStopped = () => {
 async function startArc() {
   await Tone.start();
   engine.start();
-  arc = new ArcEngine(DEFAULT_SCORE.arc);
-  const flatReadings = [...DEFAULT_SCORE.readings.solo, ...DEFAULT_SCORE.readings.relational];
-  runtime = new RalfRuntime({ readings: flatReadings, intents: DEFAULT_SCORE.intents, mappings: DEFAULT_SCORE.mappings }, engine);
+  arc = new ArcEngine(SCORE.arc);
+  const flatReadings = [...SCORE.readings.solo, ...SCORE.readings.relational];
+  runtime = new RalfRuntime({ readings: flatReadings, intents: SCORE.intents, mappings: SCORE.mappings }, engine);
   loops.resetTime();
   _lastPct = -1;
   arc.onPhaseChange = (phase) => {
@@ -112,14 +114,17 @@ async function startArc() {
   };
   arc.onComplete = () => {
     setStatus('');
-    if (indicator) indicator.update(DEFAULT_SCORE.arc.phases.length, 0);
+    if (indicator) indicator.update(SCORE.arc.phases.length, 0);
     directions.complete();
     const fadeDur = engine.getBarDuration() * 8;
     engine.fadeOutAll(fadeDur);
     arcFadeTimeout = setTimeout(() => { arcFadeTimeout = null; stopArc(); picker.clearState(); setStatus('Select a song to go again'); }, fadeDur * 1000 + 500);
   };
-  for (const cat of CATEGORIES) engine.setCategoryVolume(cat, cat === 'texture' ? -12 : -60);
-  if (phaseEl) { indicator = new PhaseIndicator(phaseEl, DEFAULT_SCORE.arc.phases); indicator.update(0, 0); indicator.show(); }
+  // Set initial volumes — atmosphere audible, energy-gated categories start muted
+  const ATMOSPHERE = ['texture', 'harmonic_bed'];
+  for (const cat of CATEGORIES) engine.setCategoryVolume(cat, ATMOSPHERE.includes(cat) ? -10 : -60);
+  for (const cat of ['groove', 'hook', 'accent']) engine.muteCategory(cat, 0);
+  if (phaseEl) { indicator = new PhaseIndicator(phaseEl, SCORE.arc.phases); indicator.update(0, 0); indicator.show(); }
   directions.show(arc.getCurrentPhase());
   if (DEBUG) grid.setAvailableCategories(['texture']);
   playing = true;
