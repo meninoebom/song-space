@@ -2,6 +2,14 @@
 
 A browser-based musical experience where dancers explore "song spaces" — interactive soundscapes built from blended songs. Choose from curated default spaces, or upload your own song to create a new one. Movement drives how the music blends and transforms in real time.
 
+## Status and Relationship to Ralf (July 2026)
+
+**Parked-but-hot.** Song Space is a standalone product with its own commercial track (`docs/COMMERCIAL.md`), on hold until after Ralf's F1 rehearsal milestone. It doubles as Ralf's concept lab; its validated findings are harvested into `~/dev/ralf/docs/research/song-space-learnings.md` — check there before re-deriving concepts.
+
+**Deliberate forks (documented, not debt):**
+- The backend pipeline is a cloud port of the standalone [Blender](https://github.com/meninoebom/ralf-blender) (`~/dev/ralf/blender`), using Replicate APIs (Demucs + allin1) because a Railway dyno can't run Demucs locally. The standalone Blender is the canonical algorithm reference.
+- `frontend/js/movement.js` is a JS fork of `~/dev/ralf/adapters/shared/quality-math.ts` (8 qualities + relational metrics). The adapters version is canonical for Ralf; improvements found in either should be evaluated for the other.
+
 ## Architecture
 
 ### Backend (`backend/`)
@@ -83,7 +91,7 @@ Qualities with absolute bounds (velocity min=0, coherence min=0) need their Adap
 
 Pre-processed curated songs live in `library/`. Each song space has a `metadata.json` and `loops/` directory with MP3 files.
 
-The standalone [Blender](https://github.com/meninoebom/blender) CLI tool creates song spaces from any audio file. The backend uses the same pipeline via Replicate cloud APIs.
+The standalone [Blender](https://github.com/meninoebom/ralf-blender) CLI tool (locally `~/dev/ralf/blender`) creates song spaces from any audio file. The backend uses the same pipeline via Replicate cloud APIs.
 
 ## Critical Technical Decisions
 
