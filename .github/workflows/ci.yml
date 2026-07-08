@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  # Required gate for auto-merge. Fast, dependency-free syntax checks that are
+  # green on main today. Once #53 repairs the jest harness, promote the
+  # `frontend-tests` job below to a required status check (see CLAUDE.md).
+  check:
+    name: check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Compile backend (syntax check)
+        run: python -m py_compile $(find backend/app -name "*.py")
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Syntax-check frontend JS
+        run: |
+          for f in $(find frontend/js -name "*.js" -not -name "*.test.js"); do
+            node --check "$f"
+          done
+
+  # Non-blocking until the harness is repaired (issue #53). Runs the real jest
+  # suite so the signal is visible on PRs; not yet in required contexts.
+  frontend-tests:
+    name: frontend-tests
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm ci
+      - run: npm test
