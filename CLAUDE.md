@@ -165,6 +165,21 @@ GET  /api/library/{slug}  (song space metadata + tracks)
 GET  /clips/{job_id}/{filename}  (serve generated loop files)
 ```
 
+## Auto-merge
+
+PRs in this repo use auto-merge. After creating a PR, run `gh pr merge --auto --squash`.
+
+CI is `.github/workflows/ci.yml`. The **required** status check is `check` (fast,
+dependency-free syntax checks: `py_compile` on the backend + `node --check` on the
+frontend). The `frontend-tests` job runs the real jest suite but is **non-blocking**
+because the harness is red on main (see issue #53). Once #53 repairs it, promote
+`frontend-tests` to a required check:
+
+```bash
+gh api repos/meninoebom/song-space/branches/main/protection/required_status_checks \
+  --method PATCH --field 'contexts[]=check' --field 'contexts[]=frontend-tests'
+```
+
 ## Development Workflow
 
 Use judgment to plan appropriately for the task:
