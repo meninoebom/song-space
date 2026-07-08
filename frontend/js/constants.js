@@ -52,7 +52,6 @@ export const QUALITY_KEYS = [
 // to the output adapter for execution.
 
 export const ACTION_TYPES = [
-  'set_volumes',   // continuous: set category volumes (dB values)
   'mute',          // edge: mute specific categories with ramp
   'solo',          // edge: solo specific categories (mute everything else)
   'restore',       // edge: restore muted categories with ramp

@@ -134,20 +134,6 @@ test('intents: all intent pools have valid action types', () => {
   }
 });
 
-test('intents: set_volumes actions reference valid categories', () => {
-  for (const [name, pool] of Object.entries(DEFAULT_SCORE.intents)) {
-    const options = Array.isArray(pool) ? pool : pool.pool;
-    for (const opt of options) {
-      if (opt.action === 'set_volumes' && opt.args) {
-        for (const key of Object.keys(opt.args)) {
-          if (key === 'rampTime') continue;
-          assert(CATEGORIES.includes(key), `intent "${name}" set_volumes references invalid category "${key}"`);
-        }
-      }
-    }
-  }
-});
-
 test('intents: mute/solo actions reference valid categories', () => {
   for (const [name, pool] of Object.entries(DEFAULT_SCORE.intents)) {
     const options = Array.isArray(pool) ? pool : pool.pool;
@@ -176,11 +162,11 @@ test('intents: no orphan intents (every pool is referenced by a reading)', () =>
 // Mappings validation
 // ============================================================
 
-test('mappings: quietVolumes covers all categories', () => {
-  const qv = DEFAULT_SCORE.mappings.quietVolumes;
+test('mappings: fixedVolumes covers all categories', () => {
+  const fv = DEFAULT_SCORE.mappings.fixedVolumes;
   for (const cat of CATEGORIES) {
-    assert(qv[cat] !== undefined, `quietVolumes missing category "${cat}"`);
-    assert(typeof qv[cat] === 'number', `quietVolumes["${cat}"] is not a number`);
+    assert(fv[cat] !== undefined, `fixedVolumes missing category "${cat}"`);
+    assert(typeof fv[cat] === 'number', `fixedVolumes["${cat}"] is not a number`);
   }
 });
 

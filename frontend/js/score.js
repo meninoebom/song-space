@@ -131,8 +131,9 @@ export const PROOF_SCORE = {
 
   // Fixed mix levels — composer sets these, dancer never touches them.
   // Everything plays at a steady level. The filter is what changes.
+  // No startMuted: all 7 categories are audible from the play phase on.
   mappings: {
-    quietVolumes: {
+    fixedVolumes: {
       texture: -8, harmonic_bed: -10, bass: -10,
       foundation: -10, groove: -10, hook: -12, accent: -20,
     },
@@ -144,6 +145,10 @@ export const DEFAULT_SCORE = {
   // --- Composer layer: the temporal journey ---
 
   arc: {
+    // Categories that begin trigger-muted (the "bring-in" model): they stay
+    // silent even once their phase allows them, until a reading brings them in.
+    // Score-owned so app.js holds no hardcoded startup state. See #53.
+    startMuted: ['groove', 'hook', 'accent'],
     phases: [
       { id: 'await',     categories: ['texture', 'harmonic_bed'],                                                   duration: null, trigger: 'movement' },
       { id: 'emerge',    categories: ['texture', 'harmonic_bed', 'bass'],                                           duration: [40, 50] },

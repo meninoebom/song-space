@@ -1,5 +1,39 @@
 # Raw Learnings
 
+## 2026-07-08 - Issue #53: Runtime contract cleanup
+
+### Solo must un-mute its own members, not just mute others
+**Problem:** `solo` muted every non-member category but never touched members. Because
+`setCategoryVolume` no-ops while `_triggerMuted` is set (audio-engine.js:160), a member
+that was trigger-muted earlier (e.g. `hook` after `energy_high_exit`, or via
+`arc.startMuted`) stayed silent through the whole solo — the pool played with a hole in it.
+**Solution:** In the solo case, walk `phaseCategories`; for members call
+`restoreCategoryQuantized` if `isTriggerMuted`, for non-members mute. The atmosphere
+invariant (texture + harmonic_bed in every phase and every solo pool) means solo never
+strips the floor.
+**Code ref:** `frontend/js/runtime.js` (solo case in `_act`)
+
+### The test files were never jest suites
+**Problem:** `package.json` had `"test": "jest"` and jest devDeps, but both test files are
+homemade node harnesses (own `test()`/`assert()`, `process.exit(1)`, header says "Run with:
+node ..."). So `npm test` reported "0 tests" and failed regardless of code health — plus
+they threw on import after the fixedVolumes migration removed `quietVolumes` and the
+quantized mute methods were added without updating the mock.
+**Solution:** Repointed `npm test` to `node frontend/js/score.test.js && node .../runtime.test.js`
+and removed the unused jest devDeps + jest.config.js (shed 4.4k lines of lockfile). Mock
+engine now tracks a real `muted` Set so `isTriggerMuted` reflects state across
+mute→restore, and records quantized/non-quantized variants under one `fn` name so
+assertions stay variant-agnostic.
+**Code ref:** `package.json`, `frontend/js/runtime.test.js` (mockEngine)
+
+### End of Issue Retrospective
+**What went well:** Issue was diagnosed to exact line numbers; the three cleanups share one
+contract so they landed cleanly together. Both reviewers found nothing Critical/Important.
+**What took longer than expected:** Untangling the test-runner mismatch (jest vs node
+harness) — a pre-existing half-migration surfaced by the CI setup done just before.
+**Would do differently:** Nothing major. Left the stale `set_volumes` docs for #50 rather
+than expanding scope.
+
 ## 2026-03-04 - Issue #7: Zero-config onboarding
 
 ### Module extraction strategy for large orchestrator files
