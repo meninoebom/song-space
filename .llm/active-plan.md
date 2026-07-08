@@ -1,6 +1,19 @@
 # Active Plan: Body as Arranger
 
-Last updated: 2026-04-02
+Last updated: 2026-07-08
+
+## Launch Backlog Progress
+
+- [x] **#53 Runtime contract cleanup** (PR #64) — solo now restores trigger-muted
+  members (silent-hook bug fixed); legacy quietVolumes/set_volumes/energy_blend
+  paths deleted (fixedVolumes is the only volume source); startup mix + mute list
+  moved into the score (`DEFAULT_SCORE.arc.startMuted`), so app.js holds no
+  hardcoded state and PROOF_SCORE plays all 7 categories in its play phase; node
+  test harnesses repaired (was crashing on main). `npm test` now runs them via node.
+  - **Follow-up for #50:** `docs/solutions/adapter-architecture.md` + `composer-framework.md`
+    still document `set_volumes` as a valid action — now stale.
+  - **Follow-up (infra):** `frontend-tests` CI job now passes green; promote it to a
+    required status check (command in CLAUDE.md § Auto-merge).
 
 ## Design Principles (established this session)
 
