@@ -120,10 +120,17 @@ async function startArc() {
     engine.fadeOutAll(fadeDur);
     arcFadeTimeout = setTimeout(() => { arcFadeTimeout = null; stopArc(); picker.clearState(); setStatus('Select a song to go again'); }, fadeDur * 1000 + 500);
   };
-  // Set initial volumes — atmosphere audible, energy-gated categories start muted
-  const ATMOSPHERE = ['texture', 'harmonic_bed'];
-  for (const cat of CATEGORIES) engine.setCategoryVolume(cat, ATMOSPHERE.includes(cat) ? -10 : -60);
-  for (const cat of ['groove', 'hook', 'accent']) engine.muteCategory(cat, 0);
+  // Initial mix — derived from the score, not hardcoded literals. Categories in
+  // the opening phase play at their fixed level; the rest stay silent until the
+  // arc brings them in. startMuted names categories that begin trigger-muted
+  // (the "bring-in" model) so a reading has to summon them. The per-frame runtime
+  // update re-applies fixedVolumes; this just sets the pre-first-frame state.
+  const fixedVolumes = SCORE.mappings?.fixedVolumes || {};
+  const openingCats = SCORE.arc.phases[0]?.categories || [];
+  for (const cat of CATEGORIES) {
+    engine.setCategoryVolume(cat, openingCats.includes(cat) ? (fixedVolumes[cat] ?? -12) : -60);
+  }
+  for (const cat of (SCORE.arc.startMuted || [])) engine.muteCategory(cat, 0);
   if (phaseEl) { indicator = new PhaseIndicator(phaseEl, SCORE.arc.phases); indicator.update(0, 0); indicator.show(); }
   directions.show(arc.getCurrentPhase());
   if (DEBUG) grid.setAvailableCategories(['texture']);

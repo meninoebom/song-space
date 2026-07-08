@@ -72,13 +72,10 @@ export class RalfRuntime {
     const readingMap = {};
     for (const r of readings) readingMap[r.id] = r;
 
-    // Fixed volumes — set once per frame from composer's mix
+    // Fixed volumes — set once per frame from composer's mix.
+    // Volume is the composer's domain; the dancer shapes sound through effects
+    // and mute/restore, never by blending faders. See docs/LEARNINGS.md.
     const fixedVolumes = this.score.mappings?.fixedVolumes;
-    // Legacy support for quietVolumes-based blending
-    const quietVolumes = this.score.mappings?.quietVolumes;
-    const contributions = {};
-    const catWeights = {};
-    for (const cat of CATEGORIES) { contributions[cat] = 0; catWeights[cat] = 0; }
 
     for (const config of this.score.readings) {
       const reading = readingMap[config.id];
@@ -100,7 +97,7 @@ export class RalfRuntime {
           if (intent.mode === 'continuous') {
             // Fire every frame while active
             if (isActive && reading.value > 0.05) {
-              this._fireContinuousIntent(intent.intent, reading, phaseCategories, contributions, catWeights);
+              this._fireContinuousIntent(intent.intent, reading, phaseCategories);
             }
           } else {
             // Edge mode (default)
@@ -141,45 +138,25 @@ export class RalfRuntime {
       }
     }
 
-    // Apply volumes
+    // Apply volumes — fixed mix. Composer sets levels; dancer shapes via
+    // effects + mute/restore. Categories outside the current phase are silenced.
     if (fixedVolumes) {
-      // Fixed mix — composer sets volumes, dancer shapes via effects + mute/restore
       for (const cat of CATEGORIES) {
         const vol = phaseCategories.includes(cat) ? (fixedVolumes[cat] ?? -12) : -60;
-        this.engine.setCategoryVolume(cat, vol);
-      }
-    } else if (quietVolumes) {
-      // Legacy: blended continuous volumes
-      for (const cat of CATEGORIES) {
-        let vol = catWeights[cat] > 0 ? contributions[cat] / catWeights[cat] : quietVolumes[cat];
-        if (!phaseCategories.includes(cat)) vol = -60;
         this.engine.setCategoryVolume(cat, vol);
       }
     }
   }
 
-  _fireContinuousIntent(intentName, reading, phaseCategories, contributions, catWeights) {
+  _fireContinuousIntent(intentName, reading, phaseCategories) {
     const pool = this._getPool(intentName);
     if (!pool || pool.length === 0) return;
 
     // Fire all set_effect actions in the pool (they stack — filter + reverb etc.)
-    // For set_volumes, use highest-weight option (deterministic, one fader wins)
     for (const opt of pool) {
       if (opt.weight <= 0) continue;
 
-      if (opt.action === 'set_volumes' && opt.args) {
-        const w = reading.value;
-        const quietVols = this.score.mappings?.quietVolumes || {};
-        for (const cat of CATEGORIES) {
-          const target = opt.args[cat] ?? (intentName === 'energy_blend' ? (quietVols[cat] ?? -40) : undefined);
-          if (target !== undefined) {
-            const floor = quietVols[cat] ?? -40;
-            contributions[cat] += (floor + (target - floor) * w);
-            catWeights[cat] += 1;
-          }
-        }
-        break; // only one volume action per intent
-      } else if (opt.action === 'set_effect' && opt.args) {
+      if (opt.action === 'set_effect' && opt.args) {
         const { effect, category, param, min, max } = opt.args;
         const value = min + (max - min) * reading.value;
         if (category === '*' && (effect === 'reverb' || effect === 'lowpass')) {
@@ -238,17 +215,6 @@ export class RalfRuntime {
     const ramp = option.args?.rampTime ?? 0.3;
 
     switch (option.action) {
-      case 'set_volumes':
-        if (option.args) {
-          for (const [cat, db] of Object.entries(option.args)) {
-            if (cat === 'rampTime') continue;
-            if (phaseCategories.includes(cat)) {
-              this.engine.setCategoryVolume(cat, db);
-            }
-          }
-        }
-        break;
-
       case 'mute':
         if (option.args?.categories) {
           const muteFn = option.args?.quantize !== false
@@ -264,12 +230,23 @@ export class RalfRuntime {
 
       case 'solo':
         if (option.args?.categories) {
-          const muteTargets = phaseCategories.filter(c => !option.args.categories.includes(c));
-          const soloMuteFn = option.args?.quantize !== false
+          const members = option.args.categories;
+          const quantized = option.args?.quantize !== false;
+          const soloMuteFn = quantized
             ? (c, r) => this.engine.muteCategoryQuantized(c, r)
             : (c, r) => this.engine.muteCategory(c, r);
-          for (const cat of muteTargets) {
-            soloMuteFn(cat, ramp);
+          const soloRestoreFn = quantized
+            ? (c, r) => this.engine.restoreCategoryQuantized(c, r)
+            : (c, r) => this.engine.restoreCategory(c, r);
+          // Mute non-members; restore any member that was previously trigger-muted
+          // so the solo pool is actually audible (fixes the silent-hook bug where
+          // a prior mute left a solo'd category muted). See #53.
+          for (const cat of phaseCategories) {
+            if (members.includes(cat)) {
+              if (this.engine.isTriggerMuted(cat)) soloRestoreFn(cat, ramp);
+            } else {
+              soloMuteFn(cat, ramp);
+            }
           }
         }
         break;

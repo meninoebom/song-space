@@ -18,16 +18,24 @@ function test(name, fn) {
 }
 
 // --- Mock AudioEngine ---
+// Mirrors the real engine: the quantized mute/restore variants flip _triggerMuted
+// synchronously (see audio-engine.js), so isTriggerMuted reflects intent
+// immediately. Quantized and non-quantized calls record under the same fn name so
+// assertions don't care which variant the runtime chose.
 function mockEngine() {
   const calls = [];
+  const muted = new Set();
   return {
     loaded: true,
     setCategoryVolume(cat, db) { calls.push({ fn: 'setCategoryVolume', cat, db }); },
-    muteCategory(cat, ramp) { calls.push({ fn: 'muteCategory', cat, ramp }); },
-    restoreCategory(cat, ramp) { calls.push({ fn: 'restoreCategory', cat, ramp }); },
-    isTriggerMuted(cat) { return calls.some(c => c.fn === 'muteCategory' && c.cat === cat); },
+    muteCategory(cat, ramp) { muted.add(cat); calls.push({ fn: 'muteCategory', cat, ramp }); },
+    muteCategoryQuantized(cat, ramp) { muted.add(cat); calls.push({ fn: 'muteCategory', cat, ramp, quantized: true }); },
+    restoreCategory(cat, ramp) { muted.delete(cat); calls.push({ fn: 'restoreCategory', cat, ramp }); },
+    restoreCategoryQuantized(cat, ramp) { muted.delete(cat); calls.push({ fn: 'restoreCategory', cat, ramp, quantized: true }); },
+    isTriggerMuted(cat) { return muted.has(cat); },
     triggerOneshot(cat, db) { calls.push({ fn: 'triggerOneshot', cat, db }); },
     sweepFilter(cat, from, to, dur) { calls.push({ fn: 'sweepFilter', cat, from, to, dur }); },
+    setEffect(cat, effect, param, value) { calls.push({ fn: 'setEffect', cat, effect, param, value }); },
     calls,
   };
 }
@@ -231,83 +239,25 @@ test('runtime: reset clears all state', () => {
 });
 
 // ============================================================
-// Continuous volume blending tests
+// Fixed-volume mix tests
 // ============================================================
 
-test('runtime: continuous intent sets blended volumes', () => {
+test('runtime: fixedVolumes applied per frame, phase-gated to -60dB', () => {
   const engine = mockEngine();
   const score = {
-    readings: [
-      { id: 'flow', mix: {}, gate: {},
-        intents: [{ intent: 'flow_blend', mode: 'continuous' }] },
-    ],
-    intents: {
-      flow_blend: [{ action: 'set_volumes', args: { bass: -6, groove: -3 }, weight: 1 }],
-    },
-    mappings: { quietVolumes: { texture: -12, bass: -40, foundation: -40, harmonic_bed: -40, groove: -40, hook: -40, accent: -40 } },
+    readings: [],
+    intents: {},
+    mappings: { fixedVolumes: { texture: -8, bass: -10, foundation: -10, harmonic_bed: -10, groove: -10, hook: -12, accent: -14 } },
   };
   const rt = new RalfRuntime(score, engine);
-  rt.update([{ id: 'flow', value: 0.8, active: true }], ALL_CATS);
-  const bassCalls = engine.calls.filter(c => c.fn === 'setCategoryVolume' && c.cat === 'bass');
-  const grooveCalls = engine.calls.filter(c => c.fn === 'setCategoryVolume' && c.cat === 'groove');
-  assert(bassCalls.length > 0, 'should set bass volume');
-  assert(Math.abs(bassCalls[bassCalls.length - 1].db - (-6)) < 0.01, `bass should be ~-6, got ${bassCalls[bassCalls.length - 1].db}`);
-  assert(Math.abs(grooveCalls[grooveCalls.length - 1].db - (-3)) < 0.01, `groove should be ~-3, got ${grooveCalls[grooveCalls.length - 1].db}`);
-});
-
-test('runtime: continuous intent uses quietVolumes when inactive', () => {
-  const engine = mockEngine();
-  const score = {
-    readings: [
-      { id: 'flow', mix: {}, gate: {},
-        intents: [{ intent: 'flow_blend', mode: 'continuous' }] },
-    ],
-    intents: {
-      flow_blend: [{ action: 'set_volumes', args: { bass: -6 }, weight: 1 }],
-    },
-    mappings: { quietVolumes: { texture: -12, bass: -40, foundation: -40, harmonic_bed: -40, groove: -40, hook: -40, accent: -40 } },
+  rt.update([], ['texture', 'bass']); // only texture + bass in phase
+  const lastVol = cat => {
+    const c = engine.calls.filter(x => x.fn === 'setCategoryVolume' && x.cat === cat);
+    return c[c.length - 1]?.db;
   };
-  const rt = new RalfRuntime(score, engine);
-  rt.update([{ id: 'flow', value: 0, active: false }], ALL_CATS);
-  const bassCalls = engine.calls.filter(c => c.fn === 'setCategoryVolume' && c.cat === 'bass');
-  assert(bassCalls.length > 0, 'should set bass from quietVolumes');
-  assert(bassCalls[bassCalls.length - 1].db === -40, `bass should be -40 (quiet), got ${bassCalls[bassCalls.length - 1].db}`);
-});
-
-test('runtime: continuous intent phase-gates to -60dB', () => {
-  const engine = mockEngine();
-  const score = {
-    readings: [
-      { id: 'flow', mix: {}, gate: {},
-        intents: [{ intent: 'flow_blend', mode: 'continuous' }] },
-    ],
-    intents: {
-      flow_blend: [{ action: 'set_volumes', args: { bass: -6 }, weight: 1 }],
-    },
-    mappings: { quietVolumes: { texture: -12, bass: -40, foundation: -40, harmonic_bed: -40, groove: -40, hook: -40, accent: -40 } },
-  };
-  const rt = new RalfRuntime(score, engine);
-  rt.update([{ id: 'flow', value: 0.8, active: true }], ['texture']); // bass not in phase
-  const bassCalls = engine.calls.filter(c => c.fn === 'setCategoryVolume' && c.cat === 'bass');
-  assert(bassCalls[bassCalls.length - 1].db === -60, `bass should be -60 (phase-gated), got ${bassCalls[bassCalls.length - 1].db}`);
-});
-
-test('runtime: continuous intent below 0.05 threshold does not contribute', () => {
-  const engine = mockEngine();
-  const score = {
-    readings: [
-      { id: 'flow', mix: {}, gate: {},
-        intents: [{ intent: 'flow_blend', mode: 'continuous' }] },
-    ],
-    intents: {
-      flow_blend: [{ action: 'set_volumes', args: { bass: -6 }, weight: 1 }],
-    },
-    mappings: { quietVolumes: { texture: -12, bass: -40, foundation: -40, harmonic_bed: -40, groove: -40, hook: -40, accent: -40 } },
-  };
-  const rt = new RalfRuntime(score, engine);
-  rt.update([{ id: 'flow', value: 0.04, active: true }], ALL_CATS);
-  const bassCalls = engine.calls.filter(c => c.fn === 'setCategoryVolume' && c.cat === 'bass');
-  assert(bassCalls[bassCalls.length - 1].db === -40, `bass should be -40 (quiet, below threshold), got ${bassCalls[bassCalls.length - 1].db}`);
+  assert(lastVol('texture') === -8, `texture should be its fixed -8, got ${lastVol('texture')}`);
+  assert(lastVol('bass') === -10, `bass should be its fixed -10, got ${lastVol('bass')}`);
+  assert(lastVol('groove') === -60, `groove should be -60 (out of phase), got ${lastVol('groove')}`);
 });
 
 // ============================================================
@@ -355,6 +305,29 @@ test('runtime: solo action mutes non-solo categories', () => {
   assert(!mutes.some(c => c.cat === 'bass'), 'should NOT mute bass (solo target)');
 });
 
+test('runtime: solo restores a trigger-muted member so it is audible', () => {
+  // Reproduces the #53 bug: a prior mute (e.g. energy_high_exit) left hook muted,
+  // then a suspended_solo drawing ['texture','harmonic_bed','hook'] must un-mute hook.
+  const engine = mockEngine();
+  const score = {
+    readings: [
+      { id: 'suspended', mix: {}, gate: {},
+        intents: [{ intent: 'suspended_solo', mode: 'edge' }] },
+    ],
+    intents: {
+      suspended_solo: [{ action: 'solo', args: { categories: ['texture', 'harmonic_bed', 'hook'] }, weight: 1 }],
+    },
+    mappings: null,
+  };
+  const rt = new RalfRuntime(score, engine);
+  engine.muteCategory('hook', 0.3); // hook was trigger-muted earlier
+  assert(engine.isTriggerMuted('hook'), 'precondition: hook starts trigger-muted');
+  rt.update([{ id: 'suspended', value: 0, active: false }], ALL_CATS);
+  rt.update([{ id: 'suspended', value: 0.8, active: true }], ALL_CATS);
+  assert(!engine.isTriggerMuted('hook'), 'solo should restore hook (member) so it plays');
+  assert(engine.isTriggerMuted('bass'), 'solo should mute non-member bass');
+});
+
 test('runtime: filter_sweep action calls sweepFilter', () => {
   const engine = mockEngine();
   const score = {
@@ -389,7 +362,7 @@ test('runtime: coiled on_exit fires explosive_release', () => {
         on_exit: ['explosive_release'] },
     ],
     intents: {
-      coiled_blend: [{ action: 'set_volumes', args: { bass: -4 }, weight: 1 }],
+      coiled_blend: [{ action: 'set_effect', args: { effect: 'lowpass', category: 'bass', param: 'frequency', min: 400, max: 4000 }, weight: 1 }],
       explosive_release: [
         { action: 'restore', args: { rampTime: 0.03 }, weight: 3 },
         { action: 'oneshot', args: { category: 'accent', volumeDb: -3 }, weight: 2 },
