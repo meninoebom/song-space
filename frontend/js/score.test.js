@@ -54,6 +54,15 @@ test('arc: phases have required fields', () => {
   }
 });
 
+test('arc: every phase has a non-empty dancer-facing hint', () => {
+  for (const phase of DEFAULT_SCORE.arc.phases) {
+    assert(
+      typeof phase.hint === 'string' && phase.hint.trim().length > 0,
+      `phase "${phase.id}" is missing a non-empty hint`
+    );
+  }
+});
+
 // ============================================================
 // Readings config validation
 // ============================================================

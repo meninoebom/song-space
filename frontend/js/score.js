@@ -149,13 +149,15 @@ export const DEFAULT_SCORE = {
     // silent even once their phase allows them, until a reading brings them in.
     // Score-owned so app.js holds no hardcoded startup state. See #53.
     startMuted: ['groove', 'hook', 'accent'],
+    // Dancer-facing hints — plain-language stage directions shown as the centered
+    // overlay for each phase. First-draft copy (#56); the embodied tuning pass is #18.
     phases: [
-      { id: 'await',     categories: ['texture', 'harmonic_bed'],                                                   duration: null, trigger: 'movement' },
-      { id: 'emerge',    categories: ['texture', 'harmonic_bed', 'bass'],                                           duration: [40, 50] },
-      { id: 'build',     categories: ['texture', 'harmonic_bed', 'bass', 'foundation'],                             duration: [60, 80] },
-      { id: 'peak',      categories: ['texture', 'harmonic_bed', 'bass', 'foundation', 'groove', 'hook', 'accent'], duration: [50, 65] },
-      { id: 'breakdown', categories: ['texture', 'harmonic_bed'],                                                   duration: [25, 35] },
-      { id: 'resolve',   categories: ['texture', 'harmonic_bed', 'bass', 'foundation', 'groove', 'hook'],           duration: [50, 65] },
+      { id: 'await',     categories: ['texture', 'harmonic_bed'],                                                   duration: null, trigger: 'movement', hint: 'move to begin' },
+      { id: 'emerge',    categories: ['texture', 'harmonic_bed', 'bass'],                                           duration: [40, 50], hint: 'keep going' },
+      { id: 'build',     categories: ['texture', 'harmonic_bed', 'bass', 'foundation'],                             duration: [60, 80], hint: 'let it build' },
+      { id: 'peak',      categories: ['texture', 'harmonic_bed', 'bass', 'foundation', 'groove', 'hook', 'accent'], duration: [50, 65], hint: 'give it everything' },
+      { id: 'breakdown', categories: ['texture', 'harmonic_bed'],                                                   duration: [25, 35], hint: 'ease off' },
+      { id: 'resolve',   categories: ['texture', 'harmonic_bed', 'bass', 'foundation', 'groove', 'hook'],           duration: [50, 65], hint: 'bring it home' },
     ],
     sectionMap: {
       emerge: 'intro',
