@@ -403,6 +403,97 @@ test('runtime: explosive edge fires slam action', () => {
 });
 
 // ============================================================
+// Reading arbitration (#54)
+// ============================================================
+
+test('runtime: instant exit-slam beats earlier quantized enter-restores (failure A)', () => {
+  const engine = mockEngine();
+  // energy_mid (idx0) and energy_high (idx1) fire QUANTIZED restores on their
+  // rising edge; stillness (idx2) fires an INSTANT energy_slam on its falling
+  // edge. In a single frame the dancer explodes out of stillness: the still gate
+  // closes and both energy gates open at once. The slam must win — every muted
+  // category restored via the instant path, and no quantized restore issued for
+  // those categories that frame.
+  const score = {
+    readings: [
+      { id: 'energy_mid', mix: {}, gate: {}, intents: [{ intent: 'mid_enter', mode: 'edge' }] },
+      { id: 'energy_high', mix: {}, gate: {}, intents: [{ intent: 'high_enter', mode: 'edge' }] },
+      { id: 'stillness', mix: {}, gate: {}, intents: [], on_exit: ['energy_slam'] },
+    ],
+    intents: {
+      mid_enter: [{ action: 'restore', args: { categories: ['groove', 'foundation'], rampTime: 0.5 }, weight: 1 }],
+      high_enter: [{ action: 'restore', args: { categories: ['hook', 'accent'], rampTime: 0.3 }, weight: 1 }],
+      energy_slam: [{ action: 'restore', args: { rampTime: 0.05, quantize: false }, weight: 1 }],
+    },
+    mappings: null,
+  };
+  const rt = new RalfRuntime(score, engine);
+  // Prior stillness stripping left these trigger-muted:
+  for (const c of ['groove', 'foundation', 'hook', 'accent', 'bass']) engine.muteCategory(c, 0.3);
+  // Frame 1: stillness active, energy off.
+  rt.update([
+    { id: 'energy_mid', value: 0, active: false },
+    { id: 'energy_high', value: 0, active: false },
+    { id: 'stillness', value: 0.8, active: true },
+  ], ALL_CATS);
+  const beforeJump = engine.calls.length;
+  // Frame 2: the explosive jump — stillness falling edge, both energy gates open.
+  rt.update([
+    { id: 'energy_mid', value: 0.9, active: true },
+    { id: 'energy_high', value: 0.9, active: true },
+    { id: 'stillness', value: 0, active: false },
+  ], ALL_CATS);
+  const jump = engine.calls.slice(beforeJump);
+  for (const cat of ['groove', 'foundation', 'hook', 'accent', 'bass']) {
+    const restores = jump.filter(c => c.fn === 'restoreCategory' && c.cat === cat);
+    assert(restores.length === 1, `${cat}: exactly one restore issued, got ${restores.length}`);
+    assert(restores.every(r => r.quantized !== true), `${cat}: restored via INSTANT path, no quantized restore`);
+    assert(!engine.isTriggerMuted(cat), `${cat}: ends unmuted after the slam`);
+  }
+});
+
+test('runtime: suppressed group member does not release the winner\'s mutes (failure B)', () => {
+  const engine = mockEngine();
+  // stillness (priority 2) and suspended (priority 1) share exclusiveGroup 'still'.
+  // Standing still with arms up activates both; stillness is the winner and mutes
+  // groove+bass, while suspended is suppressed (its solo never fires). Lowering the
+  // arms closes ONLY the suspended gate — but because suspended was suppressed, its
+  // on_exit release does not fire, so stillness's mutes survive intact.
+  const score = {
+    readings: [
+      { id: 'stillness', exclusiveGroup: 'still', priority: 2, mix: {}, gate: {},
+        intents: [{ intent: 'drums_drop', mode: 'edge' }] },
+      { id: 'suspended', exclusiveGroup: 'still', priority: 1, mix: {}, gate: {},
+        intents: [{ intent: 'suspended_solo', mode: 'edge' }],
+        on_exit: ['suspended_release'] },
+    ],
+    intents: {
+      drums_drop: [{ action: 'mute', args: { categories: ['groove', 'bass'], rampTime: 0.3 }, weight: 1 }],
+      suspended_solo: [{ action: 'solo', args: { categories: ['texture', 'harmonic_bed'] }, weight: 1 }],
+      suspended_release: [{ action: 'restore', args: { rampTime: 0.8 }, weight: 1 }],
+    },
+    mappings: null,
+  };
+  const rt = new RalfRuntime(score, engine);
+  // Frame 1: both active. stillness wins and mutes groove+bass; suspended suppressed.
+  rt.update([
+    { id: 'stillness', value: 0.8, active: true },
+    { id: 'suspended', value: 0.8, active: true },
+  ], ALL_CATS);
+  assert(engine.isTriggerMuted('groove') && engine.isTriggerMuted('bass'), 'winner stillness muted groove+bass');
+  assert(!engine.isTriggerMuted('hook'), 'suppressed suspended did not solo (no mass-mute)');
+  const beforeArmsDown = engine.calls.length;
+  // Frame 2: arms down → suspended gate closes; stillness still active (winner).
+  rt.update([
+    { id: 'stillness', value: 0.8, active: true },
+    { id: 'suspended', value: 0, active: false },
+  ], ALL_CATS);
+  const armsDown = engine.calls.slice(beforeArmsDown);
+  assert(!armsDown.some(c => c.fn === 'restoreCategory'), 'suppressed suspended fired no release on exit');
+  assert(engine.isTriggerMuted('groove') && engine.isTriggerMuted('bass'), 'stillness mutes survive the suspended exit');
+});
+
+// ============================================================
 // Summary
 // ============================================================
 

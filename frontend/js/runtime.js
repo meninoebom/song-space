@@ -57,6 +57,7 @@ export class RalfRuntime {
     this._edgeState = {};    // readingId → boolean
     this._sustainTime = {};  // `readingId:intentIdx` → seconds
     this._fired = {};        // `readingId:intentIdx` → boolean
+    this._frameActions = []; // per-frame mute/restore buffer (see _flushFrameActions)
   }
 
   /**
@@ -77,16 +78,59 @@ export class RalfRuntime {
     // and mute/restore, never by blending faders. See docs/LEARNINGS.md.
     const fixedVolumes = this.score.mappings?.fixedVolumes;
 
+    // --- Exclusive-group arbitration (READING-LEVEL) ---
+    // Readings that share an `exclusiveGroup` describe one family of body states
+    // (e.g. the stillness family: stillness / suspended / melting). Only the
+    // highest-`priority` ACTIVE member drives the music each frame; the rest are
+    // suppressed. A suppressed reading fires NO intents and NO on_exit, so its
+    // release can never undo the winner's mutes while the winner is still active.
+    // This resolves the "global exit undoes an active reading" clash (#54) and
+    // prevents overlapping low-velocity gates from stacking into mud.
+    const groupWinner = {}; // groupName → { id, priority }
+    for (const config of this.score.readings) {
+      if (!config.exclusiveGroup) continue;
+      const r = readingMap[config.id];
+      if (!r || !r.active) continue;
+      const priority = config.priority ?? 0;
+      const cur = groupWinner[config.exclusiveGroup];
+      if (!cur || priority > cur.priority) {
+        groupWinner[config.exclusiveGroup] = { id: config.id, priority };
+      }
+    }
+
+    // Per-frame action arbiter buffer. mute/restore/solo actions collect here
+    // during the frame instead of hitting the engine immediately, then
+    // _flushFrameActions resolves per-category conflicts. See that method.
+    this._frameActions = [];
+
     for (const config of this.score.readings) {
       const reading = readingMap[config.id];
       const isActive = reading ? reading.active : false;
       const wasActive = this._edgeState[config.id] ?? false;
       this._edgeState[config.id] = isActive;
 
+      // A reading in a group that is not its current winner is suppressed.
+      const suppressed = !!config.exclusiveGroup
+        && !!groupWinner[config.exclusiveGroup]
+        && groupWinner[config.exclusiveGroup].id !== config.id;
+
       // Merge phase overrides if present
       const effectiveIntents = (phaseId && config.phaseOverrides?.[phaseId]?.intents)
         ? config.phaseOverrides[phaseId].intents
         : config.intents;
+
+      // While suppressed, fire nothing but keep edge bookkeeping clean so that
+      // when this reading later becomes the winner its delayed edges start fresh
+      // (the moment begins when the state takes over the group, not before).
+      if (suppressed) {
+        if (effectiveIntents) {
+          for (let idx = 0; idx < effectiveIntents.length; idx++) {
+            this._sustainTime[`${config.id}:${idx}`] = 0;
+            this._fired[`${config.id}:${idx}`] = false;
+          }
+        }
+        continue;
+      }
 
       // Process intents
       if (effectiveIntents) {
@@ -137,6 +181,9 @@ export class RalfRuntime {
         }
       }
     }
+
+    // Resolve buffered mute/restore/solo actions with per-category arbitration.
+    this._flushFrameActions();
 
     // Apply volumes — fixed mix. Composer sets levels; dancer shapes via
     // effects + mute/restore. Categories outside the current phase are silenced.
@@ -213,16 +260,19 @@ export class RalfRuntime {
 
   _act(option, phaseCategories) {
     const ramp = option.args?.rampTime ?? 0.3;
+    // Actions that mutate shared per-category mute state (mute/restore/solo)
+    // buffer into _frameActions so the arbiter can resolve same-frame conflicts.
+    // The isTriggerMuted checks below read start-of-frame state (the buffer is
+    // not flushed until the frame ends), which makes a frame's mute decisions
+    // atomic and order-independent.
+    const quantize = option.args?.quantize !== false;
 
     switch (option.action) {
       case 'mute':
         if (option.args?.categories) {
-          const muteFn = option.args?.quantize !== false
-            ? (c, r) => this.engine.muteCategoryQuantized(c, r)
-            : (c, r) => this.engine.muteCategory(c, r);
           for (const cat of option.args.categories) {
             if (phaseCategories.includes(cat)) {
-              muteFn(cat, ramp);
+              this._frameActions.push({ op: 'mute', category: cat, quantize, ramp });
             }
           }
         }
@@ -231,21 +281,16 @@ export class RalfRuntime {
       case 'solo':
         if (option.args?.categories) {
           const members = option.args.categories;
-          const quantized = option.args?.quantize !== false;
-          const soloMuteFn = quantized
-            ? (c, r) => this.engine.muteCategoryQuantized(c, r)
-            : (c, r) => this.engine.muteCategory(c, r);
-          const soloRestoreFn = quantized
-            ? (c, r) => this.engine.restoreCategoryQuantized(c, r)
-            : (c, r) => this.engine.restoreCategory(c, r);
           // Mute non-members; restore any member that was previously trigger-muted
           // so the solo pool is actually audible (fixes the silent-hook bug where
           // a prior mute left a solo'd category muted). See #53.
           for (const cat of phaseCategories) {
             if (members.includes(cat)) {
-              if (this.engine.isTriggerMuted(cat)) soloRestoreFn(cat, ramp);
+              if (this.engine.isTriggerMuted(cat)) {
+                this._frameActions.push({ op: 'restore', category: cat, quantize, ramp });
+              }
             } else {
-              soloMuteFn(cat, ramp);
+              this._frameActions.push({ op: 'mute', category: cat, quantize, ramp });
             }
           }
         }
@@ -255,12 +300,9 @@ export class RalfRuntime {
         const restoreTargets = option.args?.categories
           ? option.args.categories.filter(c => phaseCategories.includes(c))
           : phaseCategories;
-        const restoreFn = option.args?.quantize !== false
-          ? (c, r) => this.engine.restoreCategoryQuantized(c, r)
-          : (c, r) => this.engine.restoreCategory(c, r);
         for (const cat of restoreTargets) {
           if (this.engine.isTriggerMuted(cat)) {
-            restoreFn(cat, ramp);
+            this._frameActions.push({ op: 'restore', category: cat, quantize, ramp });
           }
         }
         break;
@@ -299,9 +341,55 @@ export class RalfRuntime {
     }
   }
 
+  /**
+   * Per-frame action arbiter (ACTION-LEVEL). Resolves the mute/restore/solo
+   * actions buffered this frame down to at most one op per category, then
+   * executes them on the engine. Two rules, both declarative in intent config:
+   *
+   *   1. INSTANT beats QUANTIZED. If any unquantized action targets a category
+   *      this frame, the quantized ones for it are dropped — the instant op is
+   *      the only one issued. This fixes the enter-before-exit clash (#54):
+   *      when an earlier reading queues a quantized restore and a later reading
+   *      slams the same category instantly (quantize: false), only the instant
+   *      restore fires; no next-bar ramp is ever scheduled.
+   *   2. RESTORE beats MUTE within the same timing class. When a category is
+   *      contested, bringing sound in wins over taking it out.
+   *
+   * The sharpest (smallest) ramp among the winning entries is used.
+   */
+  _flushFrameActions() {
+    const byCat = new Map();
+    for (const a of this._frameActions) {
+      if (!byCat.has(a.category)) byCat.set(a.category, []);
+      byCat.get(a.category).push(a);
+    }
+
+    for (const [cat, entries] of byCat) {
+      const instant = entries.filter(e => !e.quantize);
+      const pool = instant.length ? instant : entries;
+      const quantize = instant.length === 0;
+
+      const restores = pool.filter(e => e.op === 'restore');
+      const winners = restores.length ? restores : pool.filter(e => e.op === 'mute');
+      const op = restores.length ? 'restore' : 'mute';
+      const ramp = Math.min(...winners.map(e => e.ramp));
+
+      if (op === 'restore') {
+        if (quantize) this.engine.restoreCategoryQuantized(cat, ramp);
+        else this.engine.restoreCategory(cat, ramp);
+      } else {
+        if (quantize) this.engine.muteCategoryQuantized(cat, ramp);
+        else this.engine.muteCategory(cat, ramp);
+      }
+    }
+
+    this._frameActions = [];
+  }
+
   reset() {
     this._edgeState = {};
     this._sustainTime = {};
     this._fired = {};
+    this._frameActions = [];
   }
 }
