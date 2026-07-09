@@ -36,11 +36,12 @@ A fun, widely available web experience where people explore "song spaces" using 
 
 ## Next Steps (in order)
 
-### 1. Deploy as Song Space
-- [x] Create new GitHub repo (split from states-of-being)
-- [ ] Update Railway project/service naming
+### 1. Deploy as Song Space ✅ (done, #61)
+- [x] Create new GitHub repo (split from states-of-being) — origin is `meninoebom/song-space`
+- [x] Update Railway project/service naming — service + domain now `song-space` / `song-space-production.up.railway.app`; old `song-blender-api-production.up.railway.app` retired
 - [x] Design a proper landing page for the Song Space experience (#59)
 - [x] Replace the root index.html with a Song Space entry point (#49, #59)
+- [x] Dev-surface decision (#61): `quality-lab.html` / `?debug` / `?score` accepted as unlisted dev tools (see CLAUDE.md Deployment)
 
 ### 2. UX refinement
 - The grid is a developer tool — design the actual user experience

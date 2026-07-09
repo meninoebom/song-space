@@ -125,12 +125,13 @@ SDK v1.0+ returns FileOutput objects, not strings. Always use `str(v)` to normal
 ## Deployment (Railway)
 
 - **Project / service:** `song-space` / `song-space` — its own Railway project (no longer nested under `states-of-being`).
-- **Domain:** `https://song-space-production.up.railway.app` (root serves the landing page; `/app/` serves the experience).
+- **Domain:** `https://song-space-production.up.railway.app` (root serves the landing page; `/app/` serves the experience). The old `song-blender-api-production.up.railway.app` domain is retired — renamed Railway domains stop resolving, they do not redirect.
 - **Deploy:** **automatic** — the service is connected to the GitHub repo `meninoebom/song-space` on `main`. Every push/merge to `main` triggers a build + deploy. `main` == live. No manual step, no GitHub Action, no deploy token.
 - **Manual deploy (fallback, rarely needed):** `railway up --detach` from the **repo root** (not `backend/`).
 - **Env vars (set on the service):** `REPLICATE_API_TOKEN` (required — Replicate pipeline); `PROCESS_API_KEY` (required — the shared-secret gate on `/api/process`, sent as the `X-API-Key` header; **fail-closed**: if unset the endpoint rejects every request with 503).
 - **Logs:** `railway logs` (runtime), `railway logs --build` (build). **Health check:** `GET /health`.
 - **State:** no database. The only persistent state is the git repo (baked-in `library/`) plus env vars, so the whole service is reproducible from `main` — this is why re-homing it into a fresh project was a clean redeploy with nothing to migrate.
+- **Dev surfaces on the public mount (decided #61, 2026-07-09):** `main.py` mounts all of `frontend/` with `html=True`, so `quality-lab.html`, `?debug=1`, and `?score=proof` are reachable on the production domain. Decision: **accept them as unlisted dev tools.** They expose no secrets, perform no writes, and are not linked from any user-facing UI, so they are harmless on a shared demo link; `quality-lab.html` is also the validation surface for movement work (#48). To hide them instead, exclude `quality-lab.html` from the production mount and gate `?debug`/`?score` behind a build flag.
 
 ### Deploy context: repo root, not backend/
 
