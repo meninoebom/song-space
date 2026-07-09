@@ -14,7 +14,7 @@ mimetypes.add_type("application/octet-stream", ".task")
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from slowapi.errors import RateLimitExceeded
 
@@ -26,7 +26,7 @@ from app.limiter import limiter
 # Ensure it's set in the process environment (pydantic-settings only loads into the class).
 os.environ.setdefault("REPLICATE_API_TOKEN", settings.REPLICATE_API_TOKEN)
 
-TEMP_DIR = tempfile.mkdtemp(prefix="sob_")
+TEMP_DIR = tempfile.mkdtemp(prefix="songspace_")
 
 app = FastAPI(title="Song Space API")
 app.state.limiter = limiter
@@ -64,6 +64,12 @@ app.include_router(process_router, prefix="/api")
 # Import and include library router after app creation
 from app.api.library import router as library_router
 app.include_router(library_router, prefix="/api")
+
+
+@app.get("/")
+def root():
+    """Redirect the bare domain to the app. A real landing page replaces this later."""
+    return RedirectResponse("/app/")
 
 
 @app.get("/health")

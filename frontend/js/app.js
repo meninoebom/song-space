@@ -15,9 +15,9 @@ import { StageDirections } from './stage-directions.js';
 import { createDetectionLoop } from './detection.js';
 import * as webcam from './webcam.js';
 
-const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-  ? window.location.origin
-  : 'https://song-blender-api-production.up.railway.app';
+// The frontend is always served same-origin at /app (locally and on Railway),
+// so the API base is simply the current origin.
+const API_URL = window.location.origin;
 
 const params = new URLSearchParams(window.location.search);
 const DEBUG = params.has('debug');
