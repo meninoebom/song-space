@@ -29,13 +29,18 @@
   <!-- Floating overlays -->
   <div id="song-picker" class="overlay overlay-top-left"></div>
   <div id="phase-indicator" class="overlay overlay-top-right" style="display:none"></div>
-  <div id="readings-meter" class="overlay overlay-bottom"></div>
+  <div id="readings-meter" class="overlay overlay-bottom debug-only"></div>
   <div id="status" class="overlay overlay-status">Select a song to begin</div>
   <!-- Camera priming copy: shown only while the camera starts (MediaPipe download
        + native permission prompt). Anchored under the status overlay because
        #webcam-video is hidden. -->
   <div id="camera-priming" class="overlay overlay-priming" style="display:none">Your camera reads your movement to drive the music. Video is processed in your browser and never uploaded.</div>
   <div id="stage-hint"></div>
+
+  <!-- Framing hint: shown when the camera can't find a whole body (dancer walked
+       out of frame, or is standing too close). Toggled by app.js via the detection
+       loop's tracking-state callback. -->
+  <div id="framing-hint" class="overlay" style="display:none">can't see you — step back so your whole body is in frame</div>
 
   <!-- Feedback affordance — visible in every state. Mailto for now; a hosted
        feedback form replaces this for the pilot push. -->

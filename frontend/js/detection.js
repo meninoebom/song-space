@@ -15,10 +15,19 @@ const DEBUG = new URLSearchParams(window.location.search).has('debug');
 // makes "playing the song's arc automatically" true rather than a false promise.
 const FALLBACK_VELOCITY = 0.3;
 
-export function createDetectionLoop({ detectors, soloReadings, relReadingsEngine, getArc, getRuntime, engine, meter, bodyCanvas, skeletonCanvas, debugPanel, onPhaseUpdate, isPlaying }) {
-  let lastFrameTime = null;
+// If the camera is running while a song plays but no body has EVER been detected
+// (dancer standing too close, below the pose-confidence thresholds), show the
+// step-back framing hint after this many seconds. Once a body has been seen, the
+// hint is instead driven by tracking loss (immediate), not this timer.
+const NO_BODY_HINT_SECONDS = 5;
 
-  function resetTime() { lastFrameTime = null; }
+export function createDetectionLoop({ detectors, soloReadings, relReadingsEngine, getArc, getRuntime, engine, meter, bodyCanvas, skeletonCanvas, debugPanel, onPhaseUpdate, isPlaying, onFramingHint = () => {} }) {
+  let lastFrameTime = null;
+  // Tracking state for the step-back framing hint (reset per session via resetTime).
+  let everTracked = false;   // has any body been detected this session?
+  let playingSince = null;   // ts (s) when the current play session began, for the never-seen timeout
+
+  function resetTime() { lastFrameTime = null; everTracked = false; playingSince = null; }
 
   function detectLoop() {
     const results = webcam.detect();
@@ -26,11 +35,14 @@ export function createDetectionLoop({ detectors, soloReadings, relReadingsEngine
     const dt = lastFrameTime ? ts - lastFrameTime : 1 / 30;
     lastFrameTime = ts;
     const arc = getArc(), runtime = getRuntime();
+    const playing = isPlaying() && !!arc;
+    if (playing) { if (playingSince == null) playingSince = ts; } else { playingSince = null; }
 
     if (results) {
       const bodyCount = results.landmarks ? results.landmarks.length : 0;
 
-      if (bodyCount > 0 && isPlaying() && arc) {
+      if (bodyCount > 0 && playing) {
+        everTracked = true;
         const quals = [], reads = [];
         for (let i = 0; i < bodyCount && i < 2; i++) {
           quals.push(detectors[i].update(results.landmarks[i], ts));
@@ -50,15 +62,29 @@ export function createDetectionLoop({ detectors, soloReadings, relReadingsEngine
           onPhaseUpdate(phase);
         }
         drawSkeletons(bodyCanvas, results.landmarks, bodyCount, finalReadings);
-        meter.render(finalReadings);
+        onFramingHint(false);
         if (DEBUG) {
+          meter.render(finalReadings);
           drawSkeletons(skeletonCanvas, results.landmarks, bodyCount, finalReadings);
           updateDebug(debugPanel, quals, finalReadings, relQuals);
         }
-      } else if (isPlaying() && arc) {
-        arc.update(dt, 0);
-        const phase = arc.getCurrentPhase();
-        if (phase) onPhaseUpdate(phase);
+      } else {
+        // No tracked body (out of frame, too close, or not yet playing). Clear the
+        // canvas so the last skeleton frame doesn't freeze as false feedback —
+        // drawSkeletons clears via clearRect before drawing zero bodies.
+        drawSkeletons(bodyCanvas, [], 0, []);
+        if (DEBUG) drawSkeletons(skeletonCanvas, [], 0, []);
+        if (playing) {
+          arc.update(dt, 0);
+          const phase = arc.getCurrentPhase();
+          if (phase) onPhaseUpdate(phase);
+          // Show the step-back hint if a body was tracked and dropped out, or if
+          // none ever appeared within NO_BODY_HINT_SECONDS of play starting.
+          const neverSeenTimeout = !everTracked && playingSince != null && (ts - playingSince) > NO_BODY_HINT_SECONDS;
+          onFramingHint(everTracked || neverSeenTimeout);
+        } else {
+          onFramingHint(false);
+        }
       }
     }
 
