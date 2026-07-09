@@ -14,7 +14,7 @@ mimetypes.add_type("application/octet-stream", ".task")
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from slowapi.errors import RateLimitExceeded
 
@@ -68,8 +68,8 @@ app.include_router(library_router, prefix="/api")
 
 @app.get("/")
 def root():
-    """Redirect the bare domain to the app. A real landing page replaces this later."""
-    return RedirectResponse("/app/")
+    """Serve the static landing page that frames the experience before entering the app."""
+    return FileResponse(str(frontend_dir / "landing.html"), media_type="text/html")
 
 
 @app.get("/health")

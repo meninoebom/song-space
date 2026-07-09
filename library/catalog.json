@@ -2,6 +2,7 @@
   {
     "slug": "highest",
     "name": "Highest",
+    "description": "Warm, soaring gospel-soul that lifts as you rise.",
     "bpm": 97,
     "time_signature": 4,
     "total_loops": 31,
@@ -24,6 +25,7 @@
   {
     "slug": "if-i-had-a-million",
     "name": "If I Had A Million",
+    "description": "Loose, playful funk built for wide, easy movement.",
     "bpm": 98,
     "time_signature": 4,
     "total_loops": 48,
@@ -43,6 +45,7 @@
   {
     "slug": "when-angels-sing",
     "name": "When Angels Sing",
+    "description": "Bright, driving house energy that rewards big motion.",
     "bpm": 128,
     "time_signature": 4,
     "total_loops": 56,
@@ -65,6 +68,7 @@
   {
     "slug": "sweet-thang",
     "name": "Sweet Thang",
+    "description": "Slow, sultry groove that sways with every gentle sway.",
     "bpm": 81,
     "time_signature": 4,
     "total_loops": 30,
