@@ -44,17 +44,26 @@ Vanilla JS app served by the API at `/app`. No build step.
 
 | File | Purpose |
 |------|---------|
-| `frontend/js/app.js` | Main orchestration — song loading, play/stop, webcam init, detection loop, two-body auto-detect |
-| `frontend/js/audio-engine.js` | Tone.js Transport-synced loop players, category volume control |
-| `frontend/js/movement.js` | MediaPipe landmarks → 8 body qualities (velocity, jerkiness, coherence, etc.) + relational metrics |
-| `frontend/js/readings.js` | ReadingConfig: weighted quality combos with hysteresis gating |
-| `frontend/js/mapping.js` | Readings → audio category volume targets (the taste layer) |
-| `frontend/js/score.js` | DEFAULT_SCORE — the complete experience config (arc, readings, mappings, triggers) |
-| `frontend/js/trigger-engine.js` | Declarative edge trigger evaluation — rising/falling edges, sustain timers, arc-aware |
-| `frontend/js/trigger-actions.js` | Translates trigger actions into AudioEngine calls (mute/solo/restore) |
-| `frontend/js/loop-grid.js` | Developer loop grid UI |
+| `frontend/js/app.js` | Main orchestration — song loading, play/stop, webcam init, wiring, two-body auto-detect |
+| `frontend/js/detection.js` | Animation-frame loops for body detection and no-camera fallback playback |
+| `frontend/js/webcam.js` | Webcam + MediaPipe pose detection setup; `detect()` returns null when not ready |
+| `frontend/js/movement.js` | INPUT ADAPTER: MediaPipe landmarks → 11 body qualities (see `constants.js` QUALITY_KEYS) + relational metrics |
+| `frontend/js/constants.js` | Adapter contracts — CATEGORIES, QUALITY_KEYS (11 qualities), ACTION_TYPES |
+| `frontend/js/readings.js` | ReadingsEngine: weighted quality combos with hysteresis gating + activeTime tracking |
+| `frontend/js/runtime.js` | RalfRuntime — the "brain": Readings → Resolve → Draw → Act. Replaced mapping/trigger-engine/trigger-actions |
+| `frontend/js/score.js` | PROOF_SCORE + DEFAULT_SCORE — the complete experience config (arc, readings, intents, mappings) |
+| `frontend/js/audio-engine.js` | Tone.js Transport-synced loop players, category volume + quantized mute/restore |
+| `frontend/js/arc.js` | Data-driven phase sequencer — phase-driven remixing with engagement tracking |
+| `frontend/js/skeleton.js` | Body-tracking skeleton drawing on canvas (uniform scaling) |
+| `frontend/js/debug.js` | Debug overlay — movement qualities and readings as text bars (debug-gated) |
+| `frontend/js/readings-meter.js` | DOM bars showing current reading values and active state (debug-gated) |
+| `frontend/js/phase-indicator.js` | Segmented progress bar showing arc phases |
+| `frontend/js/stage-directions.js` | Arc phase hints as centered overlay text |
+| `frontend/js/loop-grid.js` | Developer loop grid UI (sections × categories) |
 | `frontend/js/song-picker.js` | Song catalog cards |
-| `frontend/js/arc.js` | Phase-driven remixing with engagement tracking |
+| `frontend/js/utilities.js` | Shared utility functions |
+
+HTML entry points: `frontend/landing.html` is the public landing page served at the root URL; `frontend/index.html` is the experience served at `/app`; `frontend/quality-lab.html` is a standalone quality-testing page (see Quality Lab).
 
 ### Score — the Composer Framework
 
@@ -62,10 +71,10 @@ A **score** is the complete definition of an interactive musical experience. It 
 
 **Three layers, three roles:**
 - **Composer** provides loops (organized by category × section) + an arc (temporal journey)
-- **Interaction designer** provides readings, mappings (continuous), and triggers (edge-triggered moments)
+- **Interaction designer** provides readings, intents (edge-triggered moments), and mappings (continuous)
 - **Dancer** provides movement
 
-**The score config** bundles: arc + readings + mappings + triggers. Defined as `DEFAULT_SCORE` in `frontend/js/score.js`. Future: JSON that composers and interaction designers can author independently.
+**The score config** bundles: arc + readings + intents + mappings. Defined as `PROOF_SCORE` and `DEFAULT_SCORE` in `frontend/js/score.js`, both consumed by `RalfRuntime` (`runtime.js`). Future: JSON that composers and interaction designers can author independently.
 
 **Categories** are the 7 functional roles a loop can fill: texture, harmonic_bed, bass, foundation, groove, hook, accent. **Sections** are the 5 emotional phases: intro, verse, chorus, bridge, outro. The **arc** defines which categories are available in each phase and for how long.
 

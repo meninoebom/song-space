@@ -18,13 +18,29 @@ A fun, widely available web experience where people explore "song spaces" using 
 - [x] Arc Mode: phase-driven remixing with engagement tracking
 - [x] Loop sync: bar-quantized loop endpoints prevent drift
 
+### Since 2026-03-04 (composer-framework + launch backlog)
+
+- [x] **Composer framework / Score** — the full experience config (arc + readings + intents + mappings) as `DEFAULT_SCORE`/`PROOF_SCORE`; three-role model (composer, interaction designer, dancer). See `docs/solutions/composer-framework.md`.
+- [x] **Unified RalfRuntime** (#30, #33) — consolidated the split mapping/trigger-engine/trigger-actions pipeline into one `runtime.js` brain (Readings → Resolve → Draw → Act), sharing Ralf's Scene schema; dead pipeline files deleted.
+- [x] **Three interaction modes** — Gate (quantized to bar), Impulse (immediate one-shots), Continuous (per-frame effects); `PROOF_SCORE` demonstrates all 7 categories.
+- [x] **Expanded body qualities** (#28) — 11 qualities in `constants.js` QUALITY_KEYS (velocity, impulse, coherence, contraction, verticality, wristSpread, armsRaised, legBend, headTilt, jump, step) + relational metrics.
+- [x] **Body-state effects + bring-in/take-out** (#31) — grounded/coiled/explosive/swaying readings; per-instrument effects, quantized mute/restore, weighted draw pools.
+- [x] **Quality Lab** — standalone `quality-lab.html` for testing quality computation in isolation.
+- [x] **Segmented phase indicator** (#26) + stage directions overlay.
+- [x] **Runtime contract cleanup** (#53) — solo restores trigger-muted members; legacy volume paths removed (fixedVolumes only); score-owned startup mix; node test harness repaired.
+- [x] **Vendored frontend assets** (#51) — Tone.js + MediaPipe served locally, no CDN dependency.
+- [x] **Root URL + landing page** (#49, #59) — served at the root, hardcoded Railway domain removed, share metadata, user-facing song cards.
+- [x] **First-run onboarding** (#56) — camera priming, phase hints, feedback pill.
+- [x] **Graceful failure paths** (#57) — capability gate, mobile interstitial, friendly errors.
+- [x] **Debug-gated readings meter** (#58) — meter and skeleton hidden by default; stale skeleton cleared; step-back hint.
+
 ## Next Steps (in order)
 
 ### 1. Deploy as Song Space
-- Create new GitHub repo (split from states-of-being)
-- Update Railway project/service naming
-- Design a proper landing page for the Song Space experience
-- Replace the root index.html with a Song Space entry point
+- [x] Create new GitHub repo (split from states-of-being)
+- [ ] Update Railway project/service naming
+- [x] Design a proper landing page for the Song Space experience (#59)
+- [x] Replace the root index.html with a Song Space entry point (#49, #59)
 
 ### 2. UX refinement
 - The grid is a developer tool — design the actual user experience

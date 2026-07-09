@@ -55,7 +55,7 @@ export class ReadingsEngine {
 
   /**
    * Compute readings from body qualities.
-   * @param {Object} qualities — { velocity, jerkiness, coherence, ... } all 0-1
+   * @param {Object} qualities — { velocity, impulse, coherence, ... } all 0-1 (see QUALITY_KEYS in constants.js)
    * @returns {Array} — [{ id, value, active }, ...]
    */
   update(qualities, timestamp = performance.now() / 1000) {
