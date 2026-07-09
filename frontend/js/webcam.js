@@ -13,14 +13,14 @@ export async function start() {
 
   try {
     const { PoseLandmarker, FilesetResolver } = await import(
-      'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs'
+      '/app/vendor/mediapipe/vision_bundle.mjs'
     );
     const vision = await FilesetResolver.forVisionTasks(
-      'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm'
+      '/app/vendor/mediapipe/wasm'
     );
     poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
       baseOptions: {
-        modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
+        modelAssetPath: '/app/vendor/pose_landmarker_lite.task',
         delegate: 'GPU',
       },
       runningMode: 'VIDEO',

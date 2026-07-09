@@ -1,10 +1,16 @@
 """Song Space API."""
 
+import mimetypes
 import os
 import tempfile
 import threading
 import time
 from pathlib import Path
+
+# Ensure vendored frontend assets serve with correct content types regardless of
+# the host OS mimetypes database (StaticFiles infers types via mimetypes.guess_type).
+mimetypes.add_type("application/wasm", ".wasm")
+mimetypes.add_type("application/octet-stream", ".task")
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware

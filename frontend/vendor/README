@@ -1,0 +1,5 @@
+Vendored frontend assets (pinned, loaded locally instead of third-party CDNs):
+- Tone.js 14.7.77 (was unpkg.com/tone@14.7.77)
+- @mediapipe/tasks-vision 0.10.14: mediapipe/vision_bundle.mjs + mediapipe/wasm/ (was cdn.jsdelivr.net)
+- pose_landmarker_lite.task, float16 v1 (was storage.googleapis.com/mediapipe-models)
+See GitHub issue #51.
