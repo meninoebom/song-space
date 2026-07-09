@@ -19,6 +19,27 @@ import httpx
 from pydub import AudioSegment
 
 
+def load_backend_env():
+    """Load backend/.env into os.environ so this script shares the server's one
+    local secret cache (PROCESS_API_KEY, SONGSPACE_API_URL, ...).
+
+    The FastAPI server reads backend/.env via pydantic; without this, the same
+    file would not reach this standalone script and you'd have to `source` it by
+    hand. Standard-dotenv only: plain KEY=value lines, no shell substitution.
+    Uses setdefault so an already-exported var (or a CI/Doppler-injected one)
+    always wins, and a missing file is fine (prod/CI inject real env vars).
+    """
+    env_path = Path(__file__).resolve().parent.parent / "backend" / ".env"
+    if not env_path.exists():
+        return
+    for line in env_path.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        os.environ.setdefault(key.strip(), value.strip())
+
+
 def slugify(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
 
@@ -135,6 +156,7 @@ def ingest(song_path: str, api_url: str, library_dir: str):
 
 
 if __name__ == "__main__":
+    load_backend_env()  # before argparse: --api-url's default reads SONGSPACE_API_URL
     parser = argparse.ArgumentParser(description="Ingest a song into the curated library")
     parser.add_argument("song", help="Path to song file (mp3, wav, etc.)")
     parser.add_argument("--api-url", default=os.environ.get("SONGSPACE_API_URL", "http://localhost:8000"),
