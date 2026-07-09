@@ -124,13 +124,14 @@ SDK v1.0+ returns FileOutput objects, not strings. Always use `str(v)` to normal
 
 ## Deployment (Railway)
 
-- **Service:** `song-blender-api` in Railway project (to be renamed to `song-space`)
-- **Domain:** `song-blender-api-production.up.railway.app` (to be updated)
+- **Service:** `song-space` in Railway project `song-space`
+- **Domain:** `song-space-production.up.railway.app` (old `song-blender-api-production.up.railway.app` retired — renamed Railway domains stop resolving, they do not redirect)
 - **Frontend:** served at `/app/`
 - **Deploy:** `cd /path/to/song-space && railway up --detach` (from repo root, NOT backend/)
 - **Logs:** `railway logs` (runtime), `railway logs --build <deployment-id>` (build)
 - **Env vars:** `REPLICATE_API_TOKEN` (required); `PROCESS_API_KEY` (required to use `/api/process` — the shared-secret auth gate sent as the `X-API-Key` header; if unset the endpoint fails closed and rejects every request with 503)
 - **Health check:** `GET /health`
+- **Dev surfaces on the public mount (decided #61, 2026-07-09):** `main.py` mounts all of `frontend/` with `html=True`, so `quality-lab.html`, `?debug=1`, and `?score=proof` are reachable on the production domain. Decision: **accept them as unlisted dev tools.** They expose no secrets, perform no writes, and are not linked from any user-facing UI, so they are harmless on a shared demo link; `quality-lab.html` is also the validation surface for movement work (#48). To hide them instead, exclude `quality-lab.html` from the production mount and gate `?debug`/`?score` behind a build flag.
 
 ### Deploy context: repo root, not backend/
 
