@@ -31,7 +31,15 @@
   <div id="phase-indicator" class="overlay overlay-top-right" style="display:none"></div>
   <div id="readings-meter" class="overlay overlay-bottom"></div>
   <div id="status" class="overlay overlay-status">Select a song to begin</div>
+  <!-- Camera priming copy: shown only while the camera starts (MediaPipe download
+       + native permission prompt). Anchored under the status overlay because
+       #webcam-video is hidden. -->
+  <div id="camera-priming" class="overlay overlay-priming" style="display:none">Your camera reads your movement to drive the music. Video is processed in your browser and never uploaded.</div>
   <div id="stage-hint"></div>
+
+  <!-- Feedback affordance — visible in every state. Mailto for now; a hosted
+       feedback form replaces this for the pilot push. -->
+  <a id="feedback-pill" href="mailto:afrobot@gmail.com?subject=Song%20Space%20feedback">Feedback</a>
 
   <!-- Developer controls (hidden by default, shown with ?debug=1) -->
   <div id="controls" style="display:none">

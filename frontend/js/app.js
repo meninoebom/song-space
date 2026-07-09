@@ -32,6 +32,7 @@ const soloReadings = [new ReadingsEngine(SCORE.readings.solo), new ReadingsEngin
 const relReadingsEngine = new ReadingsEngine(SCORE.readings.relational);
 
 const status = document.getElementById('status');
+const priming = document.getElementById('camera-priming');
 const phaseEl = document.getElementById('phase-indicator');
 const bodyCanvas = document.getElementById('body-canvas');
 const meter = new ReadingsMeter(document.getElementById('readings-meter'));
@@ -40,6 +41,7 @@ const directions = new StageDirections(document.getElementById('stage-hint'));
 let arc = null, arcFadeTimeout = null, playing = false, _loadGeneration = 0, indicator = null, _lastPct = -1;
 
 const setStatus = msg => { if (status) status.textContent = msg; };
+const setPriming = on => { if (priming) priming.style.display = on ? 'block' : 'none'; };
 
 function updatePhase(phase) {
   if (!indicator) return;
@@ -76,7 +78,15 @@ picker.onSongSelected = async (metadata) => {
   catch (err) { console.error('Failed to load song:', err); setStatus(`Failed to load ${metadata.name}: ${err.message}`); picker.clearState(); return; }
   if (gen !== _loadGeneration) return;
   if (DEBUG) { grid.render(metadata); grid.onTrackToggle = (f, m) => engine.setTrackMuted(f, m); }
+  // Prime the stranger before the browser's native camera dialog: webcam.start()
+  // silently downloads the MediaPipe bundle/WASM/pose model AND triggers the
+  // permission prompt, so set both the covering status and the one-line
+  // reassurance copy first. The #webcam-video element is hidden, so the copy is
+  // anchored to the visible status overlay, not the video.
+  setStatus('Starting camera...');
+  setPriming(true);
   try { await webcam.start(); } catch (err) { console.error('Webcam init:', err); setStatus('Camera unavailable — music will play automatically'); }
+  setPriming(false);
   if (gen !== _loadGeneration) return;
   try { await startArc(); } catch (err) { console.error('Audio start failed:', err); setStatus('Audio failed — try clicking the page and selecting again'); picker.clearState(); return; }
   if (gen !== _loadGeneration) return;
@@ -107,7 +117,10 @@ async function startArc() {
         if (match) engine.setActiveLoop(cat, match.index);
       }
     }
-    setStatus(phase.id.toUpperCase());
+    // Clear the status once the arc advances off the opening phase. The status
+    // must not echo raw phase ids (EMERGE/BREAKDOWN/...) and must not stay stuck
+    // on "Move to begin" all session; the dancer-facing text is the stage hint.
+    setStatus('');
     updatePhase(arc.getCurrentPhase());
     directions.show(arc.getCurrentPhase());
     if (DEBUG) grid.setAvailableCategories(phase.categories);

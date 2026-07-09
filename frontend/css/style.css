@@ -149,6 +149,44 @@ body {
   pointer-events: none;
 }
 
+/* Camera priming copy — sits just below the status overlay, top center */
+.overlay-priming {
+  top: 56px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 420px;
+  background: rgba(10, 10, 15, 0.7);
+  border-color: rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #9aa;
+  text-align: center;
+  pointer-events: none;
+}
+
+/* Feedback pill — persistent, bottom-right, visible in every state */
+#feedback-pill {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  z-index: 80;
+  background: rgba(10, 10, 15, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 12px;
+  color: #aab;
+  text-decoration: none;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+#feedback-pill:hover {
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #fff;
+}
+
 /* Song Picker cards */
 .song-card {
   background: rgba(18, 18, 31, 0.6);
