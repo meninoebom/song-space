@@ -1,0 +1,234 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://song-space/score.schema.json",
+  "title": "Song Space Score",
+  "description": "The complete definition of an interactive Song Space experience. Two separately-authorable halves: the composer authors `arc` + `mappings.fixedVolumes` (what sounds exist and when); the interaction designer authors `readings` + `intents` (how the body shapes the music). See docs/solutions/score-schema.md. Categories and body qualities are validated by the runtime loader against the active adapter's registries, NOT frozen here, so the schema stays portable across input adapters and loop palettes (including Ralf). Structural vocabulary (interaction mode, action type, section) IS frozen as enums.",
+  "type": "object",
+  "required": ["arc", "readings", "intents"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "meta": {
+      "type": "object",
+      "description": "Non-behavioral identification. schemaVersion pins the score-format version this document targets (see docs versioning strategy).",
+      "additionalProperties": true,
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "schemaVersion": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "arc": { "$ref": "#/$defs/arc" },
+    "readings": { "$ref": "#/$defs/readings" },
+    "intents": {
+      "type": "object",
+      "description": "Named intent pools. An intent is a musical desire; each pool is a weighted set of action options drawn from when the intent fires.",
+      "additionalProperties": { "$ref": "#/$defs/intentPool" }
+    },
+    "mappings": { "$ref": "#/$defs/mappings" }
+  },
+
+  "$defs": {
+    "arc": {
+      "type": "object",
+      "description": "COMPOSER LAYER. The temporal journey: which categories are available in each phase and for how long.",
+      "required": ["phases"],
+      "additionalProperties": false,
+      "properties": {
+        "startMuted": {
+          "type": "array",
+          "description": "Categories that begin trigger-muted (the bring-in model): silent even once their phase allows them, until a reading brings them in.",
+          "items": { "type": "string" }
+        },
+        "phases": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/phase" }
+        },
+        "sectionMap": {
+          "type": "object",
+          "description": "Maps phase id -> section, telling the composer which library loops (categorized by section) play in each phase.",
+          "additionalProperties": { "enum": ["intro", "verse", "chorus", "bridge", "outro"] }
+        }
+      }
+    },
+
+    "phase": {
+      "type": "object",
+      "required": ["id", "categories", "hint"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "categories": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string" }
+        },
+        "duration": {
+          "description": "null = no timed exit (waits on a trigger). [min,max] seconds = engagement-modulated timed range.",
+          "type": ["array", "null"],
+          "minItems": 2,
+          "maxItems": 2,
+          "items": { "type": "number", "minimum": 0 }
+        },
+        "trigger": { "enum": ["movement"] },
+        "hint": { "type": "string", "minLength": 1 }
+      }
+    },
+
+    "readings": {
+      "type": "object",
+      "description": "INTERACTION-DESIGNER LAYER. Body interpretations. `solo` readings mix single-body qualities; `relational` readings mix two-body metrics.",
+      "required": ["solo"],
+      "additionalProperties": false,
+      "properties": {
+        "solo": { "type": "array", "items": { "$ref": "#/$defs/reading" } },
+        "relational": { "type": "array", "items": { "$ref": "#/$defs/reading" } }
+      }
+    },
+
+    "reading": {
+      "type": "object",
+      "required": ["id", "mix", "gate"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "mix": {
+          "type": "object",
+          "description": "quality -> positive weight. value = Σ(quality×weight)/Σ(weights).",
+          "additionalProperties": { "type": "number", "exclusiveMinimum": 0 }
+        },
+        "invert": {
+          "type": "object",
+          "description": "quality -> positive weight, contributing (1 - value)×weight. Replaces the legacy `_invertInMix` hack.",
+          "additionalProperties": { "type": "number", "exclusiveMinimum": 0 }
+        },
+        "gate": {
+          "type": "object",
+          "description": "quality -> threshold. ALL conditions must hold for the reading to be active (hysteresis applied by the engine).",
+          "additionalProperties": { "$ref": "#/$defs/gateCondition" }
+        },
+        "rampSeconds": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Accumulating behavior: value grows 0->full over N seconds while the gate stays open; resets on close."
+        },
+        "exclusiveGroup": {
+          "type": "string",
+          "description": "Reading-level arbitration (#54). Readings sharing a group are one family of overlapping body states; only the highest-priority active member drives music each frame."
+        },
+        "priority": {
+          "type": "number",
+          "description": "Within an exclusiveGroup, higher wins. Order least- to most-specific gesture."
+        },
+        "intents": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/readingIntent" }
+        },
+        "on_exit": {
+          "type": "array",
+          "description": "Intent names fired on the falling edge (GATE behavior).",
+          "items": { "type": "string" }
+        },
+        "phaseOverrides": {
+          "type": "object",
+          "description": "Optional per-arc-phase override of this reading's intents. Key = phase id.",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "intents": { "type": "array", "items": { "$ref": "#/$defs/readingIntent" } }
+            }
+          }
+        }
+      }
+    },
+
+    "gateCondition": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "above": { "type": "number" },
+        "below": { "type": "number" }
+      }
+    },
+
+    "readingIntent": {
+      "type": "object",
+      "required": ["intent", "mode"],
+      "additionalProperties": false,
+      "properties": {
+        "intent": { "type": "string" },
+        "mode": { "enum": ["edge", "continuous"] },
+        "after": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Edge-only: fire once after N seconds of sustained activation."
+        }
+      }
+    },
+
+    "intentPool": {
+      "description": "Either a bare array of options, or an object wrapping one (reserved for future pool-level config).",
+      "anyOf": [
+        { "type": "array", "items": { "$ref": "#/$defs/actionOption" } },
+        {
+          "type": "object",
+          "required": ["pool"],
+          "additionalProperties": false,
+          "properties": {
+            "pool": { "type": "array", "items": { "$ref": "#/$defs/actionOption" } }
+          }
+        }
+      ]
+    },
+
+    "actionOption": {
+      "type": "object",
+      "required": ["action", "weight"],
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "enum": ["mute", "solo", "restore", "oneshot", "filter_sweep", "set_effect"],
+          "description": "Output-adapter contract. Output-AGNOSTIC: no Tone.js concept appears here. dB and Hz in args are output-adapter conventions (see docs)."
+        },
+        "weight": { "type": "number", "exclusiveMinimum": 0 },
+        "args": { "$ref": "#/$defs/actionArgs" }
+      }
+    },
+
+    "actionArgs": {
+      "type": "object",
+      "description": "Action parameters. Category names and the '*' wildcard are loader-validated. Numeric conventions: dB for volumeDb, Hz for from/to/min/max on frequency, seconds for rampTime/duration.",
+      "additionalProperties": false,
+      "properties": {
+        "category": { "type": "string" },
+        "categories": { "type": "array", "items": { "type": "string" } },
+        "rampTime": { "type": "number", "minimum": 0 },
+        "quantize": { "type": "boolean" },
+        "volumeDb": { "type": "number" },
+        "effect": { "enum": ["lowpass", "reverb"] },
+        "param": { "enum": ["frequency", "wet"] },
+        "min": { "type": "number" },
+        "max": { "type": "number" },
+        "value": { "type": "number" },
+        "from": { "type": "number" },
+        "to": { "type": "number" },
+        "duration": { "type": "number", "minimum": 0 }
+      }
+    },
+
+    "mappings": {
+      "type": "object",
+      "description": "COMPOSER LAYER. Fixed per-category volume mix (dB). Volume is the composer's domain; readings never set volume. Replaces the killed `quietVolumes` blending path.",
+      "additionalProperties": false,
+      "properties": {
+        "fixedVolumes": {
+          "type": "object",
+          "additionalProperties": { "type": "number" }
+        }
+      }
+    }
+  }
+}

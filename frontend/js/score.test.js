@@ -4,7 +4,7 @@
  */
 
 import { DEFAULT_SCORE } from './score.js';
-import { CATEGORIES, QUALITY_KEYS, ACTION_TYPES } from './constants.js';
+import { CATEGORIES, QUALITY_KEYS, ACTION_TYPES, RELATIONAL_QUALITY_KEYS } from './constants.js';
 
 let passed = 0;
 let failed = 0;
@@ -22,8 +22,8 @@ function test(name, fn) {
 // Body qualities — canonical list from constants.js (the input contract)
 const VALID_QUALITIES = QUALITY_KEYS;
 
-// Known relational qualities from movement.js computeRelational
-const VALID_RELATIONAL = ['synchrony', 'contrast', 'aggregate_energy', 'proximity'];
+// Known relational qualities from movement.js computeRelational (single source: constants.js)
+const VALID_RELATIONAL = RELATIONAL_QUALITY_KEYS;
 
 const allReadings = [...DEFAULT_SCORE.readings.solo, ...DEFAULT_SCORE.readings.relational];
 
@@ -72,9 +72,9 @@ test('readings: solo readings reference valid qualities in mix', () => {
     for (const q of Object.keys(r.mix)) {
       assert(VALID_QUALITIES.includes(q), `reading "${r.id}" mix references unknown quality "${q}"`);
     }
-    if (r._invertInMix) {
-      for (const q of Object.keys(r._invertInMix)) {
-        assert(VALID_QUALITIES.includes(q), `reading "${r.id}" _invertInMix references unknown quality "${q}"`);
+    if (r.invert) {
+      for (const q of Object.keys(r.invert)) {
+        assert(VALID_QUALITIES.includes(q), `reading "${r.id}" invert references unknown quality "${q}"`);
       }
     }
   }

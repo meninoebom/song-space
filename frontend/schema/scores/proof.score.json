@@ -1,0 +1,66 @@
+{
+  "$schema": "../score.schema.json",
+  "meta": {
+    "id": "proof",
+    "title": "Proof of Feel",
+    "schemaVersion": 1
+  },
+  "arc": {
+    "phases": [
+      { "id": "await", "categories": ["texture"], "duration": null, "trigger": "movement", "hint": "move to begin" },
+      { "id": "play",  "categories": ["texture", "bass", "foundation", "harmonic_bed", "groove", "hook", "accent"], "duration": [300, 600], "hint": "explore" }
+    ],
+    "sectionMap": { "play": "chorus" }
+  },
+
+  "readings": {
+    "solo": [
+      {
+        "id": "energy",
+        "mix": { "velocity": 1.0 },
+        "gate": {},
+        "intents": [{ "intent": "proof_energy_filter", "mode": "continuous" }]
+      },
+      {
+        "id": "arms_up",
+        "mix": { "armsRaised": 1.0 },
+        "gate": { "armsRaised": { "above": 0.4 } },
+        "intents": [
+          { "intent": "proof_arms_up_enter", "mode": "edge" }
+        ],
+        "on_exit": ["proof_arms_up_exit"]
+      },
+      {
+        "id": "arm_impulse",
+        "mix": { "impulse": 1.0 },
+        "gate": { "impulse": { "above": 0.3 } },
+        "intents": [
+          { "intent": "proof_impulse_hit", "mode": "edge" }
+        ]
+      }
+    ],
+    "relational": []
+  },
+
+  "intents": {
+    "proof_energy_filter": [
+      { "action": "set_effect", "args": { "effect": "lowpass", "category": "*", "param": "frequency", "min": 400, "max": 18000 }, "weight": 1 }
+    ],
+    "proof_arms_up_enter": [
+      { "action": "set_effect", "args": { "effect": "reverb", "category": "*", "param": "wet", "value": 0.6 }, "weight": 1 }
+    ],
+    "proof_arms_up_exit": [
+      { "action": "set_effect", "args": { "effect": "reverb", "category": "*", "param": "wet", "value": 0 }, "weight": 1 }
+    ],
+    "proof_impulse_hit": [
+      { "action": "oneshot", "args": { "category": "groove", "volumeDb": 3 }, "weight": 1 }
+    ]
+  },
+
+  "mappings": {
+    "fixedVolumes": {
+      "texture": -8, "harmonic_bed": -10, "bass": -10,
+      "foundation": -10, "groove": -10, "hook": -12, "accent": -20
+    }
+  }
+}
