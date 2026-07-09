@@ -206,8 +206,19 @@ export const DEFAULT_SCORE = {
       // STILLNESS: the narrative anchor — absence creates drama
       // Edge-only: layers strip away over time. Exit slams back.
       // No continuous blend — doesn't fight energy for volume control.
+      //
+      // exclusiveGroup 'stillness': stillness / suspended / melting all gate on
+      // low velocity, so standing still (with or without arms up) can open
+      // several at once. Only the highest-`priority` ACTIVE member drives the
+      // music each frame; the others are suppressed (no intents, no on_exit).
+      // This is the score-level fix for reading arbitration (#54) — a suppressed
+      // member's release can't undo the winner's mutes. Priorities go least- to
+      // most-specific gesture: stillness (just still) < melting (sinking) <
+      // suspended (still AND arms up). #55 tunes the exact taste.
       {
         id: 'stillness',
+        exclusiveGroup: 'stillness',
+        priority: 1,
         rampSeconds: 3,
         mix: { contraction: 0.4, verticality: 0.3 },
         gate: { velocity: { below: 0.12 } },
@@ -252,6 +263,8 @@ export const DEFAULT_SCORE = {
       // Edge-only: solos pads after 2s ramp. Exit restores.
       {
         id: 'suspended',
+        exclusiveGroup: 'stillness',
+        priority: 3,
         rampSeconds: 2,
         mix: { armsRaised: 0.5, verticality: 0.3 },
         gate: { armsRaised: { above: 0.4 }, velocity: { below: 0.25 } },
@@ -266,6 +279,8 @@ export const DEFAULT_SCORE = {
       // Edge-only: strips rhythm away after 3s ramp. Exit restores gently.
       {
         id: 'melting',
+        exclusiveGroup: 'stillness',
+        priority: 2,
         rampSeconds: 4,
         mix: { contraction: 0.5 },
         gate: { velocity: { below: 0.2 } },

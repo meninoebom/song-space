@@ -134,6 +134,52 @@ Three patterns compose freely on a single reading:
 
 Example: stillness uses all three — instantaneous detection, accumulating ramp (3s to full strength), edge intents at 2s and 5s for progressive stripping.
 
+### Reading Arbitration
+
+Several readings can be active at once, and their intents can touch the same
+categories in the same frame or across frames. Left unmanaged, overlapping
+readings clobber each other's mute state (the "first action to touch a category
+wins" bug, #54). The score vocabulary has two declarative concepts that resolve
+this. Both live in the runtime (`runtime.js`), so they are output-agnostic — no
+audio-specific state carries the arbitration.
+
+**1. `exclusiveGroup` + `priority` on a reading (reading-level).**
+
+```js
+{ id: 'suspended', exclusiveGroup: 'stillness', priority: 3, ... }
+```
+
+Readings that name the same `exclusiveGroup` describe one family of mutually
+overlapping body states — e.g. the stillness family (stillness / melting /
+suspended), which all gate on low velocity and can open together when the dancer
+stands still. Each frame, only the highest-`priority` **active** member drives the
+music; every other member is **suppressed** — it fires no intents and no
+`on_exit`. Priority orders least- to most-specific gesture (stillness `1` <
+melting `2` < suspended `3`).
+
+This fixes two things at once:
+- A suppressed member's release can never undo the winner's mutes while the
+  winner is still active (the "global exit undoes an active reading" failure).
+- Overlapping low-velocity gates no longer stack their edge intents into mud —
+  the dancer is in exactly one state within the family.
+
+**2. Per-frame action arbiter (action-level).**
+
+`mute` / `restore` / `solo` actions do not hit the output engine immediately.
+They buffer for the frame, then resolve per category by two rules:
+- **Instant beats quantized.** If any unquantized action (`quantize: false`)
+  targets a category this frame, the quantized ones for it are dropped — only the
+  instant op is issued, with no next-bar ramp scheduled. This lets a later
+  reading's exit-slam (`energy_slam`, `quantize: false`) win over an earlier
+  reading's quantized bring-in restore that touched the same category.
+- **Restore beats mute** within the same timing class — bringing sound in wins
+  over taking it out when a category is contested.
+
+The two concepts are complementary: `exclusiveGroup` prevents cross-frame
+overlap between related states; the arbiter resolves same-frame conflicts between
+unrelated readings during a transition. Both are JSON-expressible and transfer to
+Ralf's scene system.
+
 ## Evolution Path
 
 | Stage | System | Composer input | Interaction design |
