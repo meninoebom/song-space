@@ -129,7 +129,7 @@ SDK v1.0+ returns FileOutput objects, not strings. Always use `str(v)` to normal
 - **Frontend:** served at `/app/`
 - **Deploy:** `cd /path/to/song-space && railway up --detach` (from repo root, NOT backend/)
 - **Logs:** `railway logs` (runtime), `railway logs --build <deployment-id>` (build)
-- **Env vars:** `REPLICATE_API_TOKEN` (required)
+- **Env vars:** `REPLICATE_API_TOKEN` (required); `PROCESS_API_KEY` (required to use `/api/process` — the shared-secret auth gate sent as the `X-API-Key` header; if unset the endpoint fails closed and rejects every request with 503)
 - **Health check:** `GET /health`
 
 ### Deploy context: repo root, not backend/
@@ -162,7 +162,9 @@ make dev     # runs uvicorn with --reload on localhost:8000
 
 Frontend: http://localhost:8000/app/ (served by FastAPI, no separate process)
 
-**Note:** Create `backend/.env` with `REPLICATE_API_TOKEN=...` if processing new songs. Library songs work without it.
+**Note:** Create `backend/.env` with `REPLICATE_API_TOKEN=...` (and `PROCESS_API_KEY=...` to exercise `/api/process`) if processing new songs. Library songs work without either. `scripts/ingest_song.py` reads `PROCESS_API_KEY` from the environment and sends it as the `X-API-Key` header.
+
+Run the backend tests with `backend/.venv/bin/python -m pytest backend/tests/ -q` (dev deps in `backend/requirements-dev.txt`).
 
 ## API
 

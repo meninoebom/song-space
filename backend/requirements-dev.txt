@@ -1,0 +1,3 @@
+-r requirements.txt
+pytest>=8.0
+# httpx (already in requirements.txt) backs FastAPI's TestClient.

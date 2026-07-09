@@ -6,7 +6,7 @@ import shutil
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, UploadFile
 
 from app.config import settings
 from app.limiter import limiter
@@ -16,8 +16,33 @@ router = APIRouter()
 
 SUPPORTED_EXTENSIONS = {".mp3", ".wav", ".m4a", ".flac", ".ogg"}
 
+# Serialize the Replicate calls across concurrent requests. With low account
+# credit Replicate's burst limit is a single in-flight request, so two
+# overlapping uploads would otherwise 429. start.py runs a single uvicorn
+# process, so a module-level semaphore is sufficient to queue them.
+_replicate_semaphore = asyncio.Semaphore(1)
 
-@router.post("/process")
+
+async def require_api_key(x_api_key: str | None = Header(default=None)) -> None:
+    """Auth gate for the paid processing endpoint.
+
+    This is the single seam where auth lives. To later swap the shared-secret
+    gate for per-user quotas, replace only this function's body (e.g. look up
+    the key's owner and check their remaining quota) — the route wiring and
+    every caller stay unchanged.
+
+    Fails CLOSED: if PROCESS_API_KEY is unset we reject everything (503), since
+    this endpoint costs real money per call. A present-but-wrong or missing key
+    is a 401.
+    """
+    expected = settings.PROCESS_API_KEY
+    if not expected:
+        raise HTTPException(503, "Processing endpoint is not configured")
+    if x_api_key != expected:
+        raise HTTPException(401, "Invalid or missing API key")
+
+
+@router.post("/process", dependencies=[Depends(require_api_key)])
 @limiter.limit("5/hour")
 async def process_song(request: Request, file: UploadFile):
     """Upload a song and get back categorized, choppable loops.
@@ -30,8 +55,20 @@ async def process_song(request: Request, file: UploadFile):
     if ext not in SUPPORTED_EXTENSIONS:
         raise HTTPException(400, f"Unsupported format. Accepted: {', '.join(sorted(SUPPORTED_EXTENSIONS))}")
 
-    contents = await file.read()
     max_bytes = settings.MAX_UPLOAD_MB * 1024 * 1024
+
+    # Reject oversize uploads via the declared Content-Length BEFORE buffering
+    # the whole body into memory with file.read(). Clients can omit or lie about
+    # this header, so the post-read check below stays as a backstop.
+    content_length = request.headers.get("content-length")
+    if content_length is not None:
+        try:
+            if int(content_length) > max_bytes:
+                raise HTTPException(413, f"File exceeds {settings.MAX_UPLOAD_MB}MB limit")
+        except ValueError:
+            pass
+
+    contents = await file.read()
     if len(contents) > max_bytes:
         raise HTTPException(413, f"File exceeds {settings.MAX_UPLOAD_MB}MB limit")
 
@@ -52,8 +89,11 @@ async def process_song(request: Request, file: UploadFile):
 
         # 1. Run structure analysis first, then stem separation
         # (Sequential to avoid Replicate rate limits with low credit)
-        structure = await analyze_structure(str(input_path))
-        stems = await separate_stems(str(input_path), str(job_dir))
+        # The semaphore also serializes these Replicate calls across concurrent
+        # requests so overlapping uploads queue instead of 429ing.
+        async with _replicate_semaphore:
+            structure = await analyze_structure(str(input_path))
+            stems = await separate_stems(str(input_path), str(job_dir))
 
         # Extract data from structure analysis
         sections = structure.get("segments", [])
@@ -65,13 +105,13 @@ async def process_song(request: Request, file: UploadFile):
         if not sections:
             logger.warning("No song structure detected, using single section fallback")
             from app.services.beat_analyzer import analyze_beats
-            beat_grid = analyze_beats(str(input_path))
+            beat_grid = await asyncio.to_thread(analyze_beats, str(input_path))
             bpm = beat_grid.bpm
             downbeats = beat_grid.downbeats
             beats = beat_grid.beats
             # Estimate duration from the audio file
             import librosa
-            duration = float(librosa.get_duration(path=str(input_path)))
+            duration = float(await asyncio.to_thread(librosa.get_duration, path=str(input_path)))
             sections = [{"start": 0.0, "end": duration, "label": "full"}]
 
         # Derive time signature from beats/downbeats
@@ -88,7 +128,8 @@ async def process_song(request: Request, file: UploadFile):
         # 2. Chop each stem using song sections
         loops_by_stem: dict[str, list] = {}
         for stem_name, stem_path in stems.items():
-            loops = chop_stem(
+            loops = await asyncio.to_thread(
+                chop_stem,
                 stem_path=stem_path,
                 sections=sections,
                 output_dir=str(job_dir),
