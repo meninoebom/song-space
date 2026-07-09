@@ -41,6 +41,30 @@ export const QUALITY_KEYS = [
   'step',         // foot strike event (spike-and-decay, ankle drops)
 ];
 
+// --- Relational qualities (two-body) ---
+//
+// Produced by movement.js computeRelational when two dancers are tracked.
+// A separate namespace from the solo QUALITY_KEYS: relational readings mix
+// these, solo readings mix QUALITY_KEYS. 'proximity' is reserved (declared
+// valid for authoring, not yet computed by the adapter).
+
+export const RELATIONAL_QUALITY_KEYS = ['synchrony', 'contrast', 'aggregate_energy', 'proximity'];
+
+// --- Interaction modes: the three (and only three) ways a reading binds body to music ---
+//
+// See score.js header. 'edge' covers both IMPULSE (fire-and-forget) and GATE
+// (enter/exit via on_exit); 'continuous' is proportional tracking.
+
+export const INTERACTION_MODES = ['edge', 'continuous'];
+
+// --- Arc sections: the 5 emotional phases a sectionMap can name ---
+//
+// Score-defined phase ids (arc.phases[].id) are free strings authored per score;
+// SECTIONS are the fixed vocabulary those phases map ONTO via arc.sectionMap,
+// because loop files are categorized by section in the library.
+
+export const SECTIONS = ['intro', 'verse', 'chorus', 'bridge', 'outro'];
+
 // --- Output Contract: Actions ---
 //
 // The brain emits action commands. Any output adapter (Tone.js, Ableton

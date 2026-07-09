@@ -72,9 +72,10 @@ export class ReadingsEngine {
         value += (qualities[quality] ?? 0) * weight;
         totalWeight += weight;
       }
-      // Inverted qualities (1 - quality)
-      if (config._invertInMix) {
-        for (const [quality, weight] of Object.entries(config._invertInMix)) {
+      // Inverted qualities (1 - quality). A quality listed in `invert` contributes
+      // (1 - value) * weight to the mix — e.g. "grounded" reads as low verticality.
+      if (config.invert) {
+        for (const [quality, weight] of Object.entries(config.invert)) {
           value += (1 - (qualities[quality] ?? 0)) * weight;
           totalWeight += weight;
         }

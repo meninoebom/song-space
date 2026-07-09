@@ -84,6 +84,18 @@ The arc is a default. Composers can customize: add phases, remove them, reorder,
 **The arc is the genuinely new concept for Ralf.**
  Ralf scenes are currently stateless/reactive. The arc adds temporal composition: "given where we are in the piece, what's available?" This is what makes an experience feel like a composed piece rather than an infinite jam.
 
+**The score is now authored as JSON** (as of #62). Composers and interaction
+designers write the two halves of a score document independently, a validating
+loader turns it into the runtime object, and the format is the concrete transfer
+artifact into Ralf's scene system. The full schema, the engine-enum-vs-string
+boundary decisions, the legacy-concept rulings (`_invertInMix` → `invert`;
+`quietVolumes` dropped), and the detailed Ralf mapping + divergence table live in
+[`score-schema.md`](./score-schema.md). Key divergence to remember when
+transferring: the score *structure* is shared, but the *registries* (qualities,
+categories, actions) are adapter-local and deliberately differ between song-space,
+Ralf, and the standalone Blender — so they are validated per-adapter, never frozen
+into the portable schema.
+
 ## The Interaction Designer's Deliverables
 
 The interaction designer authors **readings** (body state detection) and **intents** (what each body state does to the music). The primitives are fully reusable — any score can combine them differently.

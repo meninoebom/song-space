@@ -5,6 +5,6 @@
   "type": "module",
   "scripts": {
     "start": "npx serve .",
-    "test": "node frontend/js/score.test.js && node frontend/js/runtime.test.js"
+    "test": "node frontend/js/score.test.js && node frontend/js/runtime.test.js && node frontend/js/score-loader.test.js"
   }
 }

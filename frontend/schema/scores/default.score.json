@@ -1,0 +1,252 @@
+{
+  "$schema": "../score.schema.json",
+  "meta": {
+    "id": "default",
+    "title": "Default Score",
+    "schemaVersion": 1
+  },
+  "arc": {
+    "startMuted": ["groove", "hook", "accent"],
+    "phases": [
+      { "id": "await",     "categories": ["texture", "harmonic_bed"],                                                   "duration": null,       "trigger": "movement", "hint": "move to begin" },
+      { "id": "emerge",    "categories": ["texture", "harmonic_bed", "bass"],                                           "duration": [40, 50],   "hint": "keep going" },
+      { "id": "build",     "categories": ["texture", "harmonic_bed", "bass", "foundation"],                             "duration": [60, 80],   "hint": "let it build" },
+      { "id": "peak",      "categories": ["texture", "harmonic_bed", "bass", "foundation", "groove", "hook", "accent"], "duration": [50, 65],   "hint": "give it everything" },
+      { "id": "breakdown", "categories": ["texture", "harmonic_bed"],                                                   "duration": [25, 35],   "hint": "ease off" },
+      { "id": "resolve",   "categories": ["texture", "harmonic_bed", "bass", "foundation", "groove", "hook"],           "duration": [50, 65],   "hint": "bring it home" }
+    ],
+    "sectionMap": {
+      "emerge": "intro",
+      "build": "verse",
+      "peak": "chorus",
+      "breakdown": "bridge",
+      "resolve": "outro"
+    }
+  },
+
+  "readings": {
+    "solo": [
+      {
+        "id": "energy_mid",
+        "mix": { "velocity": 1.0 },
+        "gate": { "velocity": { "above": 0.25 } },
+        "intents": [
+          { "intent": "energy_mid_enter", "mode": "edge" }
+        ],
+        "on_exit": ["energy_mid_exit"]
+      },
+      {
+        "id": "energy_high",
+        "mix": { "velocity": 1.0 },
+        "gate": { "velocity": { "above": 0.55 } },
+        "intents": [
+          { "intent": "energy_high_enter", "mode": "edge" },
+          { "intent": "energy_high_effect", "mode": "continuous" }
+        ],
+        "on_exit": ["energy_high_exit"]
+      },
+      {
+        "id": "stillness",
+        "exclusiveGroup": "stillness",
+        "priority": 1,
+        "rampSeconds": 3,
+        "mix": { "contraction": 0.4, "verticality": 0.3 },
+        "gate": { "velocity": { "below": 0.12 } },
+        "invert": { "velocity": 0.3 },
+        "intents": [
+          { "intent": "still_strip", "mode": "edge", "after": 2 }
+        ],
+        "on_exit": ["energy_slam"]
+      },
+      {
+        "id": "arms_up",
+        "mix": { "armsRaised": 1.0 },
+        "gate": { "armsRaised": { "above": 0.4 }, "velocity": { "above": 0.25 } },
+        "intents": [
+          { "intent": "arms_up_enter", "mode": "edge" }
+        ],
+        "on_exit": ["arms_up_exit"]
+      },
+      {
+        "id": "flowing",
+        "mix": { "coherence": 0.6, "velocity": 0.4 },
+        "gate": { "velocity": { "above": 0.15 }, "coherence": { "above": 0.35 } },
+        "intents": [{ "intent": "flowing_effect", "mode": "continuous" }]
+      },
+      {
+        "id": "grounded",
+        "mix": { "legBend": 0.4, "contraction": 0.3 },
+        "gate": { "velocity": { "below": 0.3 } },
+        "invert": { "verticality": 0.3 },
+        "intents": [{ "intent": "grounded_effect", "mode": "continuous" }]
+      },
+      {
+        "id": "suspended",
+        "exclusiveGroup": "stillness",
+        "priority": 3,
+        "rampSeconds": 2,
+        "mix": { "armsRaised": 0.5, "verticality": 0.3 },
+        "gate": { "armsRaised": { "above": 0.4 }, "velocity": { "below": 0.25 } },
+        "invert": { "velocity": 0.2 },
+        "intents": [
+          { "intent": "suspended_solo", "mode": "edge", "after": 2 }
+        ],
+        "on_exit": ["suspended_release"]
+      },
+      {
+        "id": "melting",
+        "exclusiveGroup": "stillness",
+        "priority": 2,
+        "rampSeconds": 4,
+        "mix": { "contraction": 0.5 },
+        "gate": { "velocity": { "below": 0.2 } },
+        "invert": { "verticality": 0.5 },
+        "intents": [
+          { "intent": "melting_strip", "mode": "edge", "after": 3 }
+        ],
+        "on_exit": ["melting_release"]
+      },
+      {
+        "id": "wide",
+        "mix": { "wristSpread": 0.6 },
+        "gate": { "wristSpread": { "above": 0.5 }, "contraction": { "below": 0.4 } },
+        "invert": { "contraction": 0.4 },
+        "intents": [
+          { "intent": "wide_enter", "mode": "edge" },
+          { "intent": "wide_effect", "mode": "continuous" }
+        ],
+        "on_exit": ["wide_exit"]
+      },
+      {
+        "id": "compact",
+        "mix": { "contraction": 0.4, "legBend": 0.4 },
+        "gate": { "contraction": { "above": 0.5 }, "velocity": { "above": 0.1 } },
+        "invert": { "wristSpread": 0.2 },
+        "intents": [
+          { "intent": "compact_enter", "mode": "edge" },
+          { "intent": "compact_effect", "mode": "continuous" }
+        ],
+        "on_exit": ["compact_exit"]
+      },
+      {
+        "id": "stepping",
+        "mix": { "step": 0.7, "velocity": 0.3 },
+        "gate": { "step": { "above": 0.2 } },
+        "intents": [{ "intent": "stepping_effect", "mode": "continuous" }]
+      },
+      {
+        "id": "explosive",
+        "mix": { "velocity": 0.4, "impulse": 0.6 },
+        "gate": { "velocity": { "above": 0.4 }, "impulse": { "above": 0.3 } },
+        "intents": [{ "intent": "explosive_slam", "mode": "edge" }]
+      }
+    ],
+
+    "relational": [
+      {
+        "id": "unison",
+        "mix": { "synchrony": 0.6, "aggregate_energy": 0.4 },
+        "gate": { "synchrony": { "above": 0.55 } },
+        "intents": []
+      },
+      {
+        "id": "opposition",
+        "mix": { "contrast": 0.6, "aggregate_energy": 0.4 },
+        "gate": { "contrast": { "above": 0.4 } },
+        "intents": []
+      }
+    ]
+  },
+
+  "intents": {
+    "energy_mid_enter": [
+      { "action": "restore", "args": { "categories": ["groove", "foundation"], "rampTime": 0.5 }, "weight": 3 },
+      { "action": "filter_sweep", "args": { "category": "groove", "from": 800, "to": 8000, "duration": 1.5 }, "weight": 2 }
+    ],
+    "energy_mid_exit": [
+      { "action": "mute", "args": { "categories": ["groove", "foundation"], "rampTime": 1.5 }, "weight": 3 },
+      { "action": "filter_sweep", "args": { "category": "groove", "from": 8000, "to": 800, "duration": 1.0 }, "weight": 1 }
+    ],
+    "energy_high_effect": [
+      { "action": "set_effect", "args": { "effect": "lowpass", "category": "groove", "param": "frequency", "min": 5000, "max": 16000 }, "weight": 1 },
+      { "action": "set_effect", "args": { "effect": "lowpass", "category": "foundation", "param": "frequency", "min": 4000, "max": 15000 }, "weight": 1 }
+    ],
+    "energy_high_enter": [
+      { "action": "restore", "args": { "categories": ["hook", "accent"], "rampTime": 0.3 }, "weight": 3 },
+      { "action": "filter_sweep", "args": { "category": "hook", "from": 1000, "to": 12000, "duration": 1.0 }, "weight": 2 }
+    ],
+    "energy_high_exit": [
+      { "action": "mute", "args": { "categories": ["hook", "accent"], "rampTime": 2.0 }, "weight": 3 },
+      { "action": "filter_sweep", "args": { "category": "hook", "from": 12000, "to": 1000, "duration": 1.5 }, "weight": 1 }
+    ],
+    "arms_up_enter": [
+      { "action": "restore", "args": { "categories": ["hook", "accent"], "rampTime": 0.3 }, "weight": 1 }
+    ],
+    "arms_up_exit": [
+      { "action": "mute", "args": { "categories": ["hook", "accent"], "rampTime": 0.5 }, "weight": 1 }
+    ],
+    "wide_enter": [
+      { "action": "restore", "args": { "rampTime": 0.5 }, "weight": 1 }
+    ],
+    "wide_exit": [
+      { "action": "mute", "args": { "categories": ["hook"], "rampTime": 1.0 }, "weight": 1 }
+    ],
+    "compact_enter": [
+      { "action": "mute", "args": { "categories": ["hook", "texture"], "rampTime": 0.3 }, "weight": 3 },
+      { "action": "mute", "args": { "categories": ["hook", "texture", "harmonic_bed"], "rampTime": 0.4 }, "weight": 1 }
+    ],
+    "compact_exit": [
+      { "action": "restore", "args": { "rampTime": 0.3 }, "weight": 1 }
+    ],
+    "flowing_effect": [
+      { "action": "set_effect", "args": { "effect": "lowpass", "category": "harmonic_bed", "param": "frequency", "min": 2000, "max": 18000 }, "weight": 1 },
+      { "action": "set_effect", "args": { "effect": "reverb", "category": "*", "param": "wet", "min": 0, "max": 0.5 }, "weight": 1 }
+    ],
+    "grounded_effect": [
+      { "action": "set_effect", "args": { "effect": "lowpass", "category": "hook", "param": "frequency", "min": 5000, "max": 300 }, "weight": 1 }
+    ],
+    "wide_effect": [
+      { "action": "set_effect", "args": { "effect": "lowpass", "category": "harmonic_bed", "param": "frequency", "min": 5000, "max": 18000 }, "weight": 1 }
+    ],
+    "compact_effect": [
+      { "action": "set_effect", "args": { "effect": "lowpass", "category": "*", "param": "frequency", "min": 5000, "max": 300 }, "weight": 1 }
+    ],
+    "stepping_effect": [
+      { "action": "set_effect", "args": { "effect": "lowpass", "category": "groove", "param": "frequency", "min": 5000, "max": 16000 }, "weight": 1 }
+    ],
+    "still_strip": [
+      { "action": "mute", "args": { "categories": ["hook", "texture"], "rampTime": 0.3 }, "weight": 3 },
+      { "action": "mute", "args": { "categories": ["hook", "texture", "accent"], "rampTime": 0.4 }, "weight": 1 }
+    ],
+    "energy_slam": [
+      { "action": "restore", "args": { "rampTime": 0.05, "quantize": false }, "weight": 3 },
+      { "action": "restore", "args": { "rampTime": 0.15, "quantize": false }, "weight": 1 }
+    ],
+    "suspended_solo": [
+      { "action": "solo", "args": { "categories": ["texture", "harmonic_bed", "hook"], "rampTime": 1.2 }, "weight": 3 },
+      { "action": "solo", "args": { "categories": ["texture", "harmonic_bed"], "rampTime": 1.0 }, "weight": 1 }
+    ],
+    "suspended_release": [
+      { "action": "restore", "args": { "rampTime": 0.05, "quantize": false }, "weight": 1 }
+    ],
+    "melting_strip": [
+      { "action": "mute", "args": { "categories": ["groove", "foundation"], "rampTime": 1.0 }, "weight": 3 },
+      { "action": "mute", "args": { "categories": ["groove", "foundation", "bass"], "rampTime": 1.5 }, "weight": 1 }
+    ],
+    "melting_release": [
+      { "action": "restore", "args": { "rampTime": 1.5 }, "weight": 1 }
+    ],
+    "explosive_slam": [
+      { "action": "restore", "args": { "rampTime": 0.02 }, "weight": 3 },
+      { "action": "oneshot", "args": { "category": "accent", "volumeDb": -2 }, "weight": 2 },
+      { "action": "filter_sweep", "args": { "category": "groove", "from": 500, "to": 10000, "duration": 1 }, "weight": 1 }
+    ]
+  },
+
+  "mappings": {
+    "fixedVolumes": {
+      "texture": -8, "harmonic_bed": -10, "bass": -10,
+      "foundation": -10, "groove": -10, "hook": -12, "accent": -14
+    }
+  }
+}
