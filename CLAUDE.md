@@ -124,19 +124,17 @@ SDK v1.0+ returns FileOutput objects, not strings. Always use `str(v)` to normal
 
 ## Deployment (Railway)
 
-- **Service:** `song-blender-api` in Railway project (to be renamed to `song-space`)
-- **Domain:** `song-blender-api-production.up.railway.app` (to be updated)
-- **Frontend:** served at `/app/`
-- **Deploy:** `cd /path/to/song-space && railway up --detach` (from repo root, NOT backend/)
-- **Logs:** `railway logs` (runtime), `railway logs --build <deployment-id>` (build)
-- **Env vars:** `REPLICATE_API_TOKEN` (required); `PROCESS_API_KEY` (required to use `/api/process` — the shared-secret auth gate sent as the `X-API-Key` header; if unset the endpoint fails closed and rejects every request with 503)
-- **Health check:** `GET /health`
+- **Project / service:** `song-space` / `song-space` — its own Railway project (no longer nested under `states-of-being`).
+- **Domain:** `https://song-space-production.up.railway.app` (root serves the landing page; `/app/` serves the experience).
+- **Deploy:** **automatic** — the service is connected to the GitHub repo `meninoebom/song-space` on `main`. Every push/merge to `main` triggers a build + deploy. `main` == live. No manual step, no GitHub Action, no deploy token.
+- **Manual deploy (fallback, rarely needed):** `railway up --detach` from the **repo root** (not `backend/`).
+- **Env vars (set on the service):** `REPLICATE_API_TOKEN` (required — Replicate pipeline); `PROCESS_API_KEY` (required — the shared-secret gate on `/api/process`, sent as the `X-API-Key` header; **fail-closed**: if unset the endpoint rejects every request with 503).
+- **Logs:** `railway logs` (runtime), `railway logs --build` (build). **Health check:** `GET /health`.
+- **State:** no database. The only persistent state is the git repo (baked-in `library/`) plus env vars, so the whole service is reproducible from `main` — this is why re-homing it into a fresh project was a clean redeploy with nothing to migrate.
 
 ### Deploy context: repo root, not backend/
 
-**Critical:** Deploy from the **repo root**. The app serves `frontend/` at `/app` and `library/` at `/library` — sibling directories to `backend/`. Deploying from `backend/` makes them invisible (404).
-
-Config files at repo root:
+**Critical:** the build must run from the **repo root**. The app serves `frontend/` at `/app` and `library/` at `/library` — sibling directories to `backend/`. Building from `backend/` makes them invisible (404). The repo-root config files pin this:
 - `railway.toml` — start command: `cd backend && python start.py`
 - `nixpacks.toml` — `providers = ["python"]` (forces Python over Node; root `package.json` confuses auto-detect)
 - `requirements.txt` — contains `-r backend/requirements.txt` (so nixpacks finds deps at root level)
@@ -153,18 +151,31 @@ Config files at repo root:
 - **Tone.Transport sync:** All players must use `player.sync().start(0)` for shared clock.
 - **AdaptiveRange normalizer:** Expands instantly on new extremes, contracts slowly (decayRate 0.998). First few seconds recalibrate — expected, not a bug.
 
-## Local Development
+## Local Development (quickstart)
 
 ```bash
-make setup   # one-time: creates venv + installs deps
-make dev     # runs uvicorn with --reload on localhost:8000
+make setup                          # one-time: creates backend/.venv + installs deps
+cp backend/.env.example backend/.env  # then fill in the values (see below)
+make dev                            # uvicorn --reload on localhost:8000
 ```
 
-Frontend: http://localhost:8000/app/ (served by FastAPI, no separate process)
+Open **http://localhost:8000/** (landing) or **/app/** (the experience). FastAPI serves the frontend — no separate process, no build step.
 
-**Note:** Create `backend/.env` with `REPLICATE_API_TOKEN=...` (and `PROCESS_API_KEY=...` to exercise `/api/process`) if processing new songs. Library songs work without either. `scripts/ingest_song.py` reads `PROCESS_API_KEY` from the environment and sends it as the `X-API-Key` header.
+**Env (`backend/.env`) is the single local cache**, read by both the server (pydantic) and `scripts/ingest_song.py` (via `load_backend_env()`). Vars, all documented in `backend/.env.example`:
+- `REPLICATE_API_TOKEN` — required only to **process new songs**. Playing the baked-in library needs nothing.
+- `PROCESS_API_KEY` — the `/api/process` gate. Invent it (`openssl rand -hex 32`); the same value must be in `backend/.env`, on Railway, and present when running `ingest_song.py`.
+- `SONGSPACE_API_URL` — only when ingesting against a deployed instance (defaults to localhost).
 
-Run the backend tests with `backend/.venv/bin/python -m pytest backend/tests/ -q` (dev deps in `backend/requirements-dev.txt`).
+**Tests:**
+- Frontend: `npm test` (plain node assertion scripts — score / runtime / score-loader. There is no jest despite the CI job name.)
+- Backend: `backend/.venv/bin/python -m pytest backend/tests/ -q` (dev deps in `backend/requirements-dev.txt`).
+
+**Add a song to the library:** `python scripts/ingest_song.py /path/to/song.mp3` (needs both keys set; posts to `$SONGSPACE_API_URL` or localhost).
+
+## Costs
+
+- Railway `song-space` service — ~$5/mo (shared instance, as of 2026-07). No database.
+- Replicate per song processed — ~$0.135 (Demucs ~$0.035 + allin1 ~$0.10). Only incurred by `/api/process`, which is auth-gated.
 
 ## API
 
@@ -180,16 +191,11 @@ GET  /clips/{job_id}/{filename}  (serve generated loop files)
 
 PRs in this repo use auto-merge. After creating a PR, run `gh pr merge --auto --squash`.
 
-CI is `.github/workflows/ci.yml`. The **required** status check is `check` (fast,
-dependency-free syntax checks: `py_compile` on the backend + `node --check` on the
-frontend). The `frontend-tests` job runs the real jest suite but is **non-blocking**
-because the harness is red on main (see issue #53). Once #53 repairs it, promote
-`frontend-tests` to a required check:
+CI is `.github/workflows/ci.yml`. Two **required** status checks, both must pass to merge:
+- `check` — fast, dependency-free syntax checks: `py_compile` on the backend + `node --check` on the frontend.
+- `frontend-tests` — runs `npm test` (plain node assertion scripts: score / runtime / score-loader). Green on `main`; promoted to required 2026-07-09.
 
-```bash
-gh api repos/meninoebom/song-space/branches/main/protection/required_status_checks \
-  --method PATCH --field 'contexts[]=check' --field 'contexts[]=frontend-tests'
-```
+Because `main` auto-deploys to Railway, a merged PR ships to production once CI passes. Keep `main` releasable.
 
 ## Development Workflow
 
