@@ -33,6 +33,7 @@ const relReadingsEngine = new ReadingsEngine(SCORE.readings.relational);
 
 const status = document.getElementById('status');
 const priming = document.getElementById('camera-priming');
+const framingHint = document.getElementById('framing-hint');
 const phaseEl = document.getElementById('phase-indicator');
 const bodyCanvas = document.getElementById('body-canvas');
 const meter = new ReadingsMeter(document.getElementById('readings-meter'));
@@ -42,6 +43,7 @@ let arc = null, arcFadeTimeout = null, playing = false, _loadGeneration = 0, ind
 
 const setStatus = msg => { if (status) status.textContent = msg; };
 const setPriming = on => { if (priming) priming.style.display = on ? 'block' : 'none'; };
+const setFramingHint = on => { if (framingHint) framingHint.style.display = on ? 'block' : 'none'; };
 
 function updatePhase(phase) {
   if (!indicator) return;
@@ -78,6 +80,7 @@ const loops = createDetectionLoop({
   debugPanel: document.getElementById('debug-panel'),
   onPhaseUpdate: updatePhase,
   isPlaying: () => playing,
+  onFramingHint: (show) => setFramingHint(show),
 });
 
 if (DEBUG) {
@@ -179,6 +182,7 @@ function stopArc() {
   playing = false;
   if (indicator) { indicator.hide(); indicator = null; }
   directions.hide();
+  setFramingHint(false);
 }
 
 if (DEBUG) {

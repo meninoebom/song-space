@@ -149,6 +149,23 @@ body {
   pointer-events: none;
 }
 
+/* Framing hint — bottom center, shown when no whole body is detected */
+#framing-hint {
+  bottom: 32px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 420px;
+  background: rgba(10, 10, 15, 0.7);
+  border-color: rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-size: 14px;
+  line-height: 1.4;
+  color: #cbb;
+  text-align: center;
+  pointer-events: none;
+}
+
 /* Camera priming copy — sits just below the status overlay, top center */
 .overlay-priming {
   top: 56px;
@@ -261,6 +278,11 @@ body {
 body.debug .song-meta.debug-only {
   display: flex;
   margin-top: 6px;
+}
+
+/* Keep the debug readings meter a flex row (the generic .debug-only rule sets block). */
+body.debug #readings-meter.debug-only {
+  display: flex;
 }
 
 .song-sections {
