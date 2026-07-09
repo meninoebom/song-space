@@ -39,6 +39,9 @@ export const QUALITY_KEYS = [
   'headTilt',     // head offset from center
   'jump',         // vertical launch (spike-and-decay)
   'step',         // foot strike event (spike-and-decay, ankle drops)
+  // A new candidate quality awaiting Quality Lab dance-session validation before
+  // being added here is tracked in an open GitHub issue — search open issues
+  // for "QUALITY_KEYS graduation" before assuming this list is exhaustive.
 ];
 
 // --- Relational qualities (two-body) ---
