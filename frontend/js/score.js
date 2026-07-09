@@ -191,7 +191,8 @@ export const DEFAULT_SCORE = {
       },
 
       // ENERGY (high): hooks + accents arrive at high energy
-      // Also continuously brightens groove — higher energy = crisper rhythm
+      // Also continuously brightens groove AND foundation — higher energy =
+      // crisper rhythm and a tighter low end ("adding power to the rhythm")
       {
         id: 'energy_high',
         mix: { velocity: 1.0 },
@@ -204,7 +205,9 @@ export const DEFAULT_SCORE = {
       },
 
       // STILLNESS: the narrative anchor — absence creates drama
-      // Edge-only: layers strip away over time. Exit slams back.
+      // Edge-only: after 2s of stillness, strip hook + texture but LEAVE
+      // bass + groove + harmonic_bed ("stripped back to the beat, not
+      // emptiness", plan P2). Exit slams the full mix back.
       // No continuous blend — doesn't fight energy for volume control.
       //
       // exclusiveGroup 'stillness': stillness / suspended / melting all gate on
@@ -224,18 +227,19 @@ export const DEFAULT_SCORE = {
         gate: { velocity: { below: 0.12 } },
         _invertInMix: { velocity: 0.3 },
         intents: [
-          { intent: 'drums_drop', mode: 'edge', after: 2 },
-          { intent: 'strip_down', mode: 'edge', after: 5 },
+          { intent: 'still_strip', mode: 'edge', after: 2 },
         ],
         on_exit: ['energy_slam'],
       },
 
-      // ARMS UP: reach overhead → filter sweep + bring in hooks
-      // Enter: sweep up + restore hook. Exit: sweep down + mute hook.
+      // ARMS UP (while moving): reach overhead AND keep moving → the "big"
+      // version of the song. The velocity gate distinguishes this from
+      // suspended (arms up + still), which solos the atmosphere instead.
+      // Enter: restore hook + accent. Exit: mute hook + accent (quantized).
       {
         id: 'arms_up',
         mix: { armsRaised: 1.0 },
-        gate: { armsRaised: { above: 0.4 } },
+        gate: { armsRaised: { above: 0.4 }, velocity: { above: 0.25 } },
         intents: [
           { intent: 'arms_up_enter', mode: 'edge' },
         ],
@@ -378,9 +382,12 @@ export const DEFAULT_SCORE = {
       { action: 'filter_sweep', args: { category: 'groove', from: 8000, to: 800, duration: 1.0 }, weight: 1 },
     ],
 
-    // High energy continuous: groove gets brighter and crisper
+    // High energy continuous: groove AND foundation get brighter and crisper.
+    // Continuous intents fire every set_effect in the pool each frame, so both
+    // lowpass filters track velocity together (plan P4 — foundation crispness).
     energy_high_effect: [
       { action: 'set_effect', args: { effect: 'lowpass', category: 'groove', param: 'frequency', min: 5000, max: 16000 }, weight: 1 },
+      { action: 'set_effect', args: { effect: 'lowpass', category: 'foundation', param: 'frequency', min: 4000, max: 15000 }, weight: 1 },
     ],
 
     energy_high_enter: [
@@ -394,13 +401,14 @@ export const DEFAULT_SCORE = {
 
     // === BRING-IN / TAKE-OUT: mute/restore on enter/exit ===
 
-    // ARMS UP: restore everything (especially beat) + filter sweep opens
+    // ARMS UP (while moving): deterministically bring in hook + accent — the
+    // big version of the song. Single option so a raise ALWAYS lands the hooks
+    // (no weighted draw that could fire nothing). Exit mutes them on the bar.
     arms_up_enter: [
-      { action: 'restore', args: { rampTime: 0.3 }, weight: 3 },
-      { action: 'filter_sweep', args: { category: 'harmonic_bed', from: 800, to: 8000, duration: 1.5 }, weight: 1 },
+      { action: 'restore', args: { categories: ['hook', 'accent'], rampTime: 0.3 }, weight: 1 },
     ],
     arms_up_exit: [
-      { action: 'filter_sweep', args: { category: 'harmonic_bed', from: 8000, to: 2000, duration: 1.0 }, weight: 1 },
+      { action: 'mute', args: { categories: ['hook', 'accent'], rampTime: 0.5 }, weight: 1 },
     ],
 
     // WIDE: restore everything + expansive feel
@@ -454,27 +462,32 @@ export const DEFAULT_SCORE = {
 
     // === EDGE: dramatic moments ===
 
-    // Stillness: progressive stripping over time
-    drums_drop: [
-      { action: 'mute', args: { categories: ['groove', 'bass'], rampTime: 0.3 }, weight: 3 },
-      { action: 'mute', args: { categories: ['groove', 'bass', 'foundation'], rampTime: 0.4 }, weight: 1 },
-    ],
-    strip_down: [
-      { action: 'solo', args: { categories: ['texture', 'harmonic_bed'], rampTime: 0.8 }, weight: 3 },
-      { action: 'solo', args: { categories: ['texture', 'harmonic_bed', 'bass'], rampTime: 1.0 }, weight: 1 },
+    // Stillness: strip back to the beat (plan P2). Mute hook + texture and
+    // LEAVE bass + groove + harmonic_bed so an audible pulse always remains —
+    // never solos down to atmosphere. Both variants keep bass + groove alive.
+    // (Muting texture is in slight tension with "atmosphere always plays";
+    // that feel question is deferred to the #18 tuning pass.)
+    still_strip: [
+      { action: 'mute', args: { categories: ['hook', 'texture'], rampTime: 0.3 }, weight: 3 },
+      { action: 'mute', args: { categories: ['hook', 'texture', 'accent'], rampTime: 0.4 }, weight: 1 },
     ],
     energy_slam: [
       { action: 'restore', args: { rampTime: 0.05, quantize: false }, weight: 3 },
       { action: 'restore', args: { rampTime: 0.15, quantize: false }, weight: 1 },
     ],
 
-    // Suspended: solo the atmosphere after holding still with arms up
+    // Suspended: hold still with arms up → solo vocals (hook) + harmonic_bed
+    // (plan P1). Weighted toward the hook-including variant so the held moment
+    // keeps the vocal line; the pads-only variant is the rarer draw.
     suspended_solo: [
-      { action: 'solo', args: { categories: ['texture', 'harmonic_bed'], rampTime: 1.0 }, weight: 3 },
-      { action: 'solo', args: { categories: ['texture', 'harmonic_bed', 'hook'], rampTime: 1.2 }, weight: 1 },
+      { action: 'solo', args: { categories: ['texture', 'harmonic_bed', 'hook'], rampTime: 1.2 }, weight: 3 },
+      { action: 'solo', args: { categories: ['texture', 'harmonic_bed'], rampTime: 1.0 }, weight: 1 },
     ],
+    // Release the hold → everything slams back on the SAME frame, not the next
+    // bar. quantize:false is the instant "drop" (same pattern as energy_slam);
+    // the runtime honors it via args.quantize !== false.
     suspended_release: [
-      { action: 'restore', args: { rampTime: 0.8 }, weight: 1 },
+      { action: 'restore', args: { rampTime: 0.05, quantize: false }, weight: 1 },
     ],
 
     // Melting: gentle strip as you yield to gravity
