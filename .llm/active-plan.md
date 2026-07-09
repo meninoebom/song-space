@@ -36,25 +36,39 @@ Last updated: 2026-07-08
 
 ## What's Next — Priority Order
 
-### 1. Suspended drop (highest impact)
+**Status (2026-07-08):** The interaction *vocabulary* these four items depend on has landed —
+three interaction modes (Gate/Impulse/Continuous), quantized mute/restore, per-instrument
+effects, and body-state effects + bring-in/take-out (#31, PROOF_SCORE). What remains is tuning
+`DEFAULT_SCORE` to the specific gestures below. That delta work is tracked in the launch
+backlog: **#55** (stillness rework, instant suspended drop, arms-up gate, foundation crispness)
+and **#54** (reading arbitration for overlapping stillness-family gates). Real-user tuning is
+**#18**.
+
+**Guiding priority (from raw-learnings, "control first, then indeterminacy, then arc"):** make
+the system feel like an instrument first — arms up → something unmistakable happens *and keeps
+happening while up*; ball → unmistakable; stomp → something. Deterministic, obvious cause-and-
+effect comes before weighted pools (variety) and before the arc (journey). You can't feel
+surprise without first feeling agency.
+
+### 1. Suspended drop (highest impact) → #55
 - **Gesture:** Arms up + still (suspended reading, fires after 2s)
 - **On enter:** Solo vocals + harmonic_bed (everything else mutes, quantized to bar)
 - **On release** (start moving): Everything slams back in (instant restore) — the "drop"
 - **Feel:** Dancer holds a moment of tension, then releases it. Repeatable, intentional drama.
 
-### 2. Stillness rework (fix silence bug properly)
+### 2. Stillness rework (fix silence bug properly) → #55, arbitration in #54
 - **Current problem:** strip_down goes too sparse, can feel like silence
 - **New behavior:** Still for 2s → mute hooks, texture (leave bass + groove + harmonic_bed)
 - Creates a "stripped back to the beat" feel, not emptiness
 - Moving again restores the full mix
 
-### 3. Arms up (while moving) → hooks arrive
+### 3. Arms up (while moving) → hooks arrive → #55
 - **Gesture:** Arms raised + still moving (different from suspended which requires stillness)
 - **On enter:** Restore hooks + accents (quantized)
 - **On exit:** Mute hooks on next bar
 - **Feel:** Moving with arms up = the "big" version of the song. Arms down = back to basics.
 
-### 4. Energy → groove enhancement
+### 4. Energy → groove enhancement → #55
 - Already partially there (filter brightness at high energy)
 - Push further: foundation gets crisper too at very high energy
 - The feeling of "adding power to the rhythm"
