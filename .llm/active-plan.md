@@ -50,28 +50,37 @@ happening while up*; ball → unmistakable; stomp → something. Deterministic, 
 effect comes before weighted pools (variety) and before the arc (journey). You can't feel
 surprise without first feeling agency.
 
-### 1. Suspended drop (highest impact) → #55
+### 1. Suspended drop (highest impact) → #55 ✅ DONE (PR for #55)
 - **Gesture:** Arms up + still (suspended reading, fires after 2s)
 - **On enter:** Solo vocals + harmonic_bed (everything else mutes, quantized to bar)
 - **On release** (start moving): Everything slams back in (instant restore) — the "drop"
 - **Feel:** Dancer holds a moment of tension, then releases it. Repeatable, intentional drama.
+- **Landed:** `suspended_release` is now an instant slam (`rampTime: 0.05, quantize: false`);
+  `suspended_solo` reweighted to the hook-including variant (texture+harmonic_bed+hook, weight 3).
 
-### 2. Stillness rework (fix silence bug properly) → #55, arbitration in #54
+### 2. Stillness rework (fix silence bug properly) → #55, arbitration in #54 ✅ DONE (PR for #55)
 - **Current problem:** strip_down goes too sparse, can feel like silence
 - **New behavior:** Still for 2s → mute hooks, texture (leave bass + groove + harmonic_bed)
 - Creates a "stripped back to the beat" feel, not emptiness
 - Moving again restores the full mix
+- **Landed:** `drums_drop`/`strip_down` replaced by a single `still_strip`@2s (mute hook+texture,
+  bass+groove+harmonic_bed always survive). Muting texture vs "atmosphere always plays" is a feel
+  question deferred to #18. Stillness family already carries exclusiveGroup/priority (#54).
 
-### 3. Arms up (while moving) → hooks arrive → #55
+### 3. Arms up (while moving) → hooks arrive → #55 ✅ DONE (PR for #55)
 - **Gesture:** Arms raised + still moving (different from suspended which requires stillness)
 - **On enter:** Restore hooks + accents (quantized)
 - **On exit:** Mute hooks on next bar
 - **Feel:** Moving with arms up = the "big" version of the song. Arms down = back to basics.
+- **Landed:** arms_up gate now requires `velocity > 0.25` (distinguishes from suspended);
+  enter deterministically restores hook+accent (single option); exit mutes hook+accent quantized.
 
-### 4. Energy → groove enhancement → #55
+### 4. Energy → groove enhancement → #55 ✅ DONE (PR for #55)
 - Already partially there (filter brightness at high energy)
 - Push further: foundation gets crisper too at very high energy
 - The feeling of "adding power to the rhythm"
+- **Landed:** `energy_high_effect` now also drives a lowpass on foundation (4000→15000) that tracks
+  velocity alongside groove's; continuous intents fire every set_effect in the pool.
 
 ### 5. Future: per-instrument control within categories
 - Currently categories are coarse (groove = all drums together)

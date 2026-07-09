@@ -206,6 +206,79 @@ test('cross-layer: edge intents with "after" have positive delay', () => {
 });
 
 // ============================================================
+// Plan alignment (#55) — Body as Arranger deltas
+// ============================================================
+
+// Gather every intent option (from intents + on_exit) referenced by a reading.
+function optionsForReading(readingId) {
+  const r = allReadings.find(x => x.id === readingId);
+  const names = [
+    ...(r.intents ? r.intents.map(i => i.intent) : []),
+    ...(r.on_exit || []),
+  ];
+  const opts = [];
+  for (const name of names) {
+    const pool = DEFAULT_SCORE.intents[name];
+    const options = Array.isArray(pool) ? pool : pool.pool;
+    for (const opt of options) opts.push({ intent: name, ...opt });
+  }
+  return opts;
+}
+
+test('#55 P2: stillness intents never mute bass or groove (keep the beat)', () => {
+  for (const opt of optionsForReading('stillness')) {
+    if (opt.action === 'mute' && opt.args?.categories) {
+      assert(!opt.args.categories.includes('bass'), `stillness "${opt.intent}" mutes bass`);
+      assert(!opt.args.categories.includes('groove'), `stillness "${opt.intent}" mutes groove`);
+    }
+    // solo mutes every non-member, so a solo must KEEP bass + groove as members
+    if (opt.action === 'solo' && opt.args?.categories) {
+      assert(opt.args.categories.includes('bass'), `stillness "${opt.intent}" solos away bass`);
+      assert(opt.args.categories.includes('groove'), `stillness "${opt.intent}" solos away groove`);
+    }
+  }
+});
+
+test('#55 P1: suspended_release is an instant slam (quantize: false)', () => {
+  const pool = DEFAULT_SCORE.intents.suspended_release;
+  const options = Array.isArray(pool) ? pool : pool.pool;
+  assert(
+    options.every(o => o.action === 'restore' && o.args?.quantize === false),
+    'suspended_release must restore with quantize: false on every option'
+  );
+});
+
+test('#55 P3: arms_up gate includes a velocity condition', () => {
+  const armsUp = DEFAULT_SCORE.readings.solo.find(r => r.id === 'arms_up');
+  assert(armsUp.gate.velocity !== undefined, 'arms_up gate must include a velocity condition');
+});
+
+test('#55 P3: arms_up exit mutes hook (quantized)', () => {
+  const armsUp = DEFAULT_SCORE.readings.solo.find(r => r.id === 'arms_up');
+  const hasHookMute = (armsUp.on_exit || []).some(name => {
+    const pool = DEFAULT_SCORE.intents[name];
+    const options = Array.isArray(pool) ? pool : pool.pool;
+    return options.some(o =>
+      o.action === 'mute' &&
+      o.args?.categories?.includes('hook') &&
+      o.args?.quantize !== false // default (quantized)
+    );
+  });
+  assert(hasHookMute, 'arms_up on_exit must include a quantized hook mute');
+});
+
+test('#55 P4: a set_effect intent targets foundation crispness', () => {
+  let found = false;
+  for (const pool of Object.values(DEFAULT_SCORE.intents)) {
+    const options = Array.isArray(pool) ? pool : pool.pool;
+    for (const opt of options) {
+      if (opt.action === 'set_effect' && opt.args?.category === 'foundation') found = true;
+    }
+  }
+  assert(found, 'no set_effect intent targets foundation');
+});
+
+// ============================================================
 // Summary
 // ============================================================
 
