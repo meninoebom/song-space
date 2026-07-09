@@ -9,11 +9,43 @@ export class SongPicker {
     this.apiUrl = apiUrl;
     this.onSongSelected = null;  // callback(songMetadata)
     this.onSongStopped = null;   // callback()
+    this.onError = null;         // callback(message) — echo a load failure to the status bar
     this._activeSlug = null;
     this._cards = new Map();     // slug → card element
+    this._banner = null;         // inline error/retry banner element (per-song failures)
+  }
+
+  /** A small inline retry button. Stops propagation so it never toggles a card. */
+  _retryButton(label, onRetry) {
+    const btn = document.createElement('button');
+    btn.className = 'retry-btn';
+    btn.textContent = label;
+    btn.addEventListener('click', (e) => { e.stopPropagation(); onRetry(); });
+    return btn;
+  }
+
+  _clearBanner() {
+    this._banner?.remove();
+    this._banner = null;
+  }
+
+  /** Prepend a dismissible error + retry above the catalog (per-song failures,
+   *  which must not wipe the card list the way catalog/empty states do). */
+  _showBanner(message, retryLabel, onRetry) {
+    this._clearBanner();
+    const banner = document.createElement('div');
+    banner.className = 'picker-error';
+    const p = document.createElement('p');
+    p.className = 'error';
+    p.textContent = message;
+    banner.appendChild(p);
+    banner.appendChild(this._retryButton(retryLabel, onRetry));
+    this.container.prepend(banner);
+    this._banner = banner;
   }
 
   async load() {
+    this._clearBanner();
     this.container.innerHTML = '<p class="loading">Loading songs...</p>';
 
     try {
@@ -22,7 +54,12 @@ export class SongPicker {
       const catalog = await res.json();
 
       if (catalog.length === 0) {
-        this.container.innerHTML = '<p class="empty">No songs in library yet.</p>';
+        this.container.innerHTML = '';
+        const emptyEl = document.createElement('p');
+        emptyEl.className = 'empty';
+        emptyEl.textContent = 'No songs in library yet.';
+        this.container.appendChild(emptyEl);
+        this.container.appendChild(this._retryButton('Refresh', () => this.load()));
         return;
       }
 
@@ -63,11 +100,12 @@ export class SongPicker {
         this.container.appendChild(card);
       }
     } catch (err) {
+      this.container.innerHTML = '';
       const errEl = document.createElement('p');
       errEl.className = 'error';
       errEl.textContent = `Failed to load songs: ${err.message}`;
-      this.container.innerHTML = '';
       this.container.appendChild(errEl);
+      this.container.appendChild(this._retryButton('Retry', () => this.load()));
     }
   }
 
@@ -79,6 +117,7 @@ export class SongPicker {
       return;
     }
 
+    this._clearBanner();
     this._activeSlug = slug;
     this._setCardState(slug, 'loading');
 
@@ -91,8 +130,14 @@ export class SongPicker {
       if (slug !== this._activeSlug) return;
       if (this.onSongSelected) this.onSongSelected(metadata);
     } catch (err) {
+      // Previously this failed silently (console.error + clearState). Now it
+      // surfaces in the status bar AND leaves an inline retry above the catalog.
       console.error('Failed to load song:', err);
-      if (slug === this._activeSlug) this.clearState();
+      if (slug !== this._activeSlug) return;
+      this.clearState();
+      const message = `Couldn't load that song (${err.message}).`;
+      if (this.onError) this.onError(message);
+      this._showBanner(message, 'Retry', () => this._select(slug));
     }
   }
 

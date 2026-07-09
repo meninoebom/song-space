@@ -58,6 +58,29 @@
   <!-- Debug overlay -->
   <pre id="debug-panel" style="display:none"></pre>
 
+  <!-- Unsupported-browser gate: shown on boot when a required capability
+       (getUserMedia / Web Audio / WebAssembly) is missing. Toggled by app.js. -->
+  <div id="unsupported-panel" class="fullscreen-panel" style="display:none">
+    <div class="panel-card">
+      <h2>Song Space needs a modern desktop browser</h2>
+      <p>This experience uses your webcam, the Web Audio API, and WebAssembly to turn
+         movement into music. Your browser is missing one of those.</p>
+      <p>Try the latest Chrome, Edge, or Safari on a laptop or desktop.</p>
+      <p id="unsupported-list" class="panel-detail"></p>
+    </div>
+  </div>
+
+  <!-- Small-screen interstitial: shown by a @media query (style.css) below ~768px.
+       "Try anyway" tags <body class="dismiss-mobile"> to reveal the experience. -->
+  <div id="mobile-interstitial">
+    <div class="panel-card">
+      <h2>Best on a laptop</h2>
+      <p>Song Space reads your whole body through the webcam, so it wants room and a
+         bigger screen. Come back on a laptop or desktop with a camera for the full thing.</p>
+      <button id="mobile-try-anyway" class="try-anyway-btn">Try anyway</button>
+    </div>
+  </div>
+
   <script src="vendor/Tone.js"></script>
   <script type="module" src="js/app.js"></script>
 </body>

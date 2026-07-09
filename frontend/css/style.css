@@ -459,6 +459,38 @@ body.debug .debug-only {
 
 .error { color: #f88; }
 
+/* Retry affordance for catalog / empty / per-song failures */
+.retry-btn {
+  align-self: flex-start;
+  margin: 0 16px 8px;
+  background: var(--color-primary);
+  color: #0a0a0f;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.retry-btn:hover { opacity: 0.85; }
+
+/* Inline per-song error banner (prepended above the card list) */
+.picker-error {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  margin-bottom: 4px;
+  background: rgba(60, 20, 24, 0.4);
+  border: 1px solid var(--color-dim-accent);
+  border-radius: 8px;
+}
+
+.picker-error .error { padding: 0; }
+.picker-error .retry-btn { margin: 0; }
+
 .grid-hint {
   font-size: 13px;
   color: #555;
@@ -486,6 +518,84 @@ body.debug .debug-only {
 
 .grid-label.phase-unavailable {
   opacity: 0.3;
+}
+
+/* Full-screen gates: unsupported browser + small-screen interstitial.
+   These cover the whole viewport and sit above every overlay. */
+.fullscreen-panel,
+#mobile-interstitial {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(6, 6, 10, 0.96);
+}
+
+/* Unsupported panel is JS-toggled (inline display:flex); the interstitial is
+   CSS/@media-driven below. */
+
+.panel-card {
+  max-width: 440px;
+  text-align: center;
+  background: rgba(18, 18, 31, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 32px 28px;
+}
+
+.panel-card h2 {
+  font-size: 22px;
+  font-weight: 400;
+  color: var(--color-primary);
+  margin-bottom: 16px;
+}
+
+.panel-card p {
+  font-size: 15px;
+  line-height: 1.5;
+  color: #bbb;
+  margin-bottom: 12px;
+}
+
+.panel-card .panel-detail {
+  font-size: 12px;
+  color: #777;
+  margin-top: 8px;
+}
+
+.try-anyway-btn {
+  margin-top: 12px;
+  background: transparent;
+  color: var(--color-primary);
+  border: 1px solid var(--color-primary);
+  border-radius: 8px;
+  padding: 10px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.try-anyway-btn:hover {
+  background: var(--color-primary);
+  color: #0a0a0f;
+}
+
+/* Small screens: recommend a laptop. The interstitial shows purely via this
+   @media query; app.js only wires the "try anyway" escape hatch, which tags
+   <body class="dismiss-mobile"> to hide it and reveal the running experience.
+   A real mobile layout pass is out of scope for v1 (see ROADMAP.md). */
+@media (max-width: 767px) {
+  body:not(.dismiss-mobile) #mobile-interstitial {
+    display: flex;
+  }
+  /* Narrow the picker so try-anyway users on small screens collide less. */
+  .overlay-top-left {
+    max-width: calc(100vw - 32px);
+  }
 }
 
 /* Debug panel */

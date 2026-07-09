@@ -50,6 +50,15 @@ A fun, widely available web experience where people explore "song spaces" using 
 - Upload limits, storage quotas
 - Pricing model decision needed
 
+## Out of Scope (v1)
+
+- **Mobile / small-screen layout.** Song Space reads the whole body through the
+  webcam and assumes a laptop or desktop with room to move. A real responsive
+  mobile pass (touch-first layout, portrait framing, phone-camera pose tuning) is
+  deliberately deferred past v1. For now, viewports below ~768px get a friendly
+  interstitial recommending a laptop, with a "try anyway" escape hatch, and
+  unsupported browsers get a capability-gate message (see #57).
+
 ## Open Questions
 
 - UX: what does the non-developer experience look like?

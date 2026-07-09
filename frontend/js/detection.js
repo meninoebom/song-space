@@ -8,6 +8,13 @@ import * as webcam from './webcam.js';
 
 const DEBUG = new URLSearchParams(window.location.search).has('debug');
 
+// Synthetic engagement fed to the arc when there is no camera. It must clear
+// arc.js MOVEMENT_TRIGGER_THRESHOLD (0.15) so the AWAIT phase advances, and stay
+// above the PEAK early-breakdown stillness cutoff (0.05) so the arc runs its full
+// journey. Mid-range (0.3) also yields mid-length phase durations. This is what
+// makes "playing the song's arc automatically" true rather than a false promise.
+const FALLBACK_VELOCITY = 0.3;
+
 export function createDetectionLoop({ detectors, soloReadings, relReadingsEngine, getArc, getRuntime, engine, meter, bodyCanvas, skeletonCanvas, debugPanel, onPhaseUpdate, isPlaying }) {
   let lastFrameTime = null;
 
@@ -64,7 +71,7 @@ export function createDetectionLoop({ detectors, soloReadings, relReadingsEngine
     const ts = performance.now() / 1000;
     const dt = lastFrameTime ? ts - lastFrameTime : 1 / 30;
     lastFrameTime = ts;
-    arc.update(dt, 0);
+    arc.update(dt, FALLBACK_VELOCITY);
     const phase = arc.getCurrentPhase();
     if (phase) onPhaseUpdate(phase);
     requestAnimationFrame(fallbackLoop);
