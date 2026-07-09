@@ -114,6 +114,7 @@ const LEFT_JOINTS = [11, 13, 15, 23, 25, 27];
 const RIGHT_JOINTS = [12, 14, 16, 24, 26, 28];
 const BODY_JOINTS = [...LEFT_JOINTS, ...RIGHT_JOINTS];
 const WINDOW = 30; // ~1 second at 30fps
+const JERK_WINDOW = 10; // frames — Ralf's canonical windowed-variance-of-acceleration formulation
 
 export class MovementDetector {
   constructor() {
@@ -129,6 +130,9 @@ export class MovementDetector {
       contraction:   new AdaptiveRange(0.01, 0.15),
       verticality:   new AdaptiveRange(0.02, 0.2),
       coherence:     new AdaptiveRange(0, 0.01, 0.999),
+      // NOT wired into QUALITY_KEYS yet — see the jerkiness comment near the
+      // computation below and #48. Lab-only until a dance session validates it.
+      jerkiness:     new AdaptiveRange(0, 0.0001, 0.999),
       wristSpread:   new AdaptiveRange(0, 0.3),
       armsRaised:    new AdaptiveRange(-0.1, 0.3),
       headTilt:      new AdaptiveRange(0, 0.1),
@@ -141,6 +145,7 @@ export class MovementDetector {
     this.leftVelHistory = [];
     this.rightVelHistory = [];
     this.velDiffHistory = [];
+    this.accelHistory = [];
 
     // Impulse: Schmitt trigger state
     this._impulseValue = 0;
@@ -179,6 +184,8 @@ export class MovementDetector {
       velocity: 0, impulse: 0, coherence: 0, step: 0,
       contraction: 0.5, verticality: 0.5, wristSpread: 0.5,
       armsRaised: 0, legBend: 0.5, headTilt: 0, jump: 0,
+      // jerkiness: lab-only quality, not in QUALITY_KEYS (see computation below + #48)
+      jerkiness: 0,
     };
 
     // Torso length for scale-normalization (shoulder midpoint to hip midpoint)
@@ -349,6 +356,53 @@ export class MovementDetector {
       const variance = this.velDiffHistory.reduce((acc, d) => acc + (d - meanDiff) ** 2, 0) / this.velDiffHistory.length;
       out.coherence = 1 - this.ranges.coherence.normalize(Math.sqrt(variance));
       this.ranges.coherence.min = 0; // pin: zero variance is absolute coherence
+    }
+
+    // Jerkiness: windowed variance of acceleration (torso-normalized, One-Euro
+    // smoothed via landmarkFilters upstream). NOT the mean-aggregated third
+    // derivative (`|frameAccel - prevAccel|` then mean) the original 2026-03-07
+    // implementation used — that formulation was noise-prone and got culled for
+    // not reading as meaningful (docs/LEARNINGS.md, .llm/raw-learnings.md). This
+    // is a different, untried hypothesis: variance of the acceleration signal
+    // itself over a short window, which should stay low for smooth/rhythmic
+    // acceleration and spike for staccato speed-ups and slow-downs. Formula and
+    // window size (10 frames) per Ralf's adapters/shared/quality-math.ts
+    // computeJerkiness. Lab-only (see quality-lab.html) pending validation — see
+    // out.jerkiness init comment and #48.
+    {
+      // frame-to-frame acceleration = delta of consecutive torso-normalized
+      // frame velocities already sitting in velocityHistory (no extra state).
+      if (this.velocityHistory.length >= 2) {
+        const frameAccel = this.velocityHistory[this.velocityHistory.length - 1] -
+          this.velocityHistory[this.velocityHistory.length - 2];
+        this.accelHistory.push(frameAccel);
+        while (this.accelHistory.length > JERK_WINDOW) this.accelHistory.shift();
+      }
+
+      if (this.accelHistory.length >= 3) {
+        const accelMean = mean(this.accelHistory);
+        const accelVariance = this.accelHistory.reduce((acc, a) => acc + (a - accelMean) ** 2, 0) / this.accelHistory.length;
+
+        // Pin min=0 (zero variance is an absolute floor — perfectly even
+        // acceleration, not a discovered extreme) before AND after normalize,
+        // per the CLAUDE.md AdaptiveRange pinning rule: noise_floor / max_pin
+        // must stay below gate_threshold - HYSTERESIS_BAND (0.05).
+        //
+        // Provisional max floor 0.0001: standing-still velocity jitter is
+        // ~0.002 (see the velocity pin above), so frame-to-frame acceleration
+        // jitter (difference of two independent ~0.002 jitters) is roughly
+        // 0.002 * sqrt(2) ≈ 0.0028, giving a jitter variance of ≈ 0.0028^2 ≈
+        // 7.8e-6. At max_pin=0.0001 that normalizes to ≈0.08 — well below any
+        // plausible gate threshold minus hysteresis once a jerkiness reading
+        // is authored (the culled score used `jerkiness < 0.5` as its gate).
+        // This number has NOT been validated against real dance data; the
+        // Quality Lab session (#48) is the pending gate for tuning it.
+        this.ranges.jerkiness.min = 0;
+        this.ranges.jerkiness.max = Math.max(this.ranges.jerkiness.max, 0.0001);
+        out.jerkiness = this.ranges.jerkiness.normalize(accelVariance);
+        this.ranges.jerkiness.min = 0;
+        this.ranges.jerkiness.max = Math.max(this.ranges.jerkiness.max, 0.0001);
+      }
     }
 
     return out;

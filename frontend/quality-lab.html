@@ -131,6 +131,7 @@
       velocity:      { type: 'temporal', desc: 'overall movement speed (scale-normalized)' },
       impulse:       { type: 'temporal', desc: 'sudden velocity burst — spike and decay' },
       coherence:     { type: 'temporal', desc: 'left/right sides moving together (gated on velocity)' },
+      jerkiness:     { type: 'temporal', desc: 'windowed variance of acceleration — lab-only, not in QUALITY_KEYS (#48)' },
       contraction:   { type: 'spatial',  desc: 'all extremities near body center (hands + feet)' },
       verticality:   { type: 'spatial',  desc: 'upright posture (head above hips)' },
       wristSpread:   { type: 'spatial',  desc: 'arm extension (hands far from center)' },
@@ -143,7 +144,7 @@
 
     // Group by type for display order
     const GROUPS = [
-      { label: 'Temporal — how you move over time', keys: ['velocity', 'impulse', 'coherence'] },
+      { label: 'Temporal — how you move over time', keys: ['velocity', 'impulse', 'coherence', 'jerkiness'] },
       { label: 'Spatial — your body shape right now', keys: ['contraction', 'verticality', 'wristSpread', 'armsRaised', 'legBend', 'headTilt'] },
       { label: 'Impulse — momentary events', keys: ['jump', 'step'] },
     ];

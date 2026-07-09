@@ -75,6 +75,20 @@ The Replicate models (Demucs for stems, allin1 for song structure) are pre-train
 
 **app.js simplification:** Extracted detection loop and utilities. 479 → 219 → 146 lines across the rework. app.js is now pure wiring.
 
+## Pending: Jerkiness Re-Implementation Awaiting Quality Lab Validation (2026-07-09)
+
+**Status:** Implementation ready, validation gate NOT met. Tracked in #48.
+
+**Background:** `jerkiness` existed in `movement.js` from the initial commit and was culled 2026-03-07 (see "Quality refinement: iterative dance testing" in `.llm/raw-learnings.md` — 18 qualities down to 10) because it did not read as meaningful in dance testing. That culled implementation computed a mean-aggregated third derivative (`frameJerk = |frameAccel - prevAccel|`, then `normalize(mean(jerkHistory))`) — a noise-prone formulation.
+
+**What changed:** #48 re-implements jerkiness with a formula that was never tried in this codebase: **windowed variance of acceleration** over the last 10 frames (torso-normalized, One-Euro-smoothed inputs), matching Ralf's canonical `computeJerkiness` in `~/dev/ralf/adapters/shared/quality-math.ts`. The prior cull tested a different, weaker hypothesis, so it doesn't refute this one.
+
+**AdaptiveRange pinning:** `jerkiness` has an absolute lower bound of 0 (zero acceleration variance = perfectly even acceleration), so its `AdaptiveRange` is pinned `min=0` before and after normalize, per the CLAUDE.md pinning rule. The `max` floor is a **provisional** estimate (0.0001): standing-still velocity jitter is ~0.002, so frame-to-frame acceleration jitter is ~0.0028, giving a jitter variance of ~7.8e-6 — normalizing to ~0.08 at `max=0.0001`, comfortably below the culled score's old `jerkiness < 0.5` gate minus hysteresis (0.05). This has not been checked against real dance data.
+
+**The pending gate:** A live Quality Lab session (`/app/quality-lab.html`, webcam) where Brandon dances staccato movement vs. flowing movement, watching the `jerkiness` bar in the Temporal group. If it visibly separates the two, it graduates into `QUALITY_KEYS` (`frontend/js/constants.js`) and becomes eligible for score wiring in a future issue (#18 territory, not this one). If it doesn't separate them, remove the code per the 2026-03-07 cull precedent and record why here.
+
+**Deliberately not done in this pass:** `jerkiness` is NOT in `QUALITY_KEYS` and NOT in any `DEFAULT_SCORE` reading — both are gated on the session above.
+
 ## What's Working Well (2026-02-27)
 
 - **Drums:** Consistently good output across sections. Energy-based groove/foundation categorization makes sense.
