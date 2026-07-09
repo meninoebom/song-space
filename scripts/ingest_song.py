@@ -33,11 +33,17 @@ def ingest(song_path: str, api_url: str, library_dir: str):
     lib.mkdir(parents=True, exist_ok=True)
 
     # 1. Process song via API
+    api_key = os.environ.get("PROCESS_API_KEY")
+    if not api_key:
+        print("Error: PROCESS_API_KEY environment variable is required (the /api/process auth gate)")
+        sys.exit(1)
+
     print(f"Processing {song_file.name}...")
     with open(song_file, "rb") as f:
         response = httpx.post(
             f"{api_url}/api/process",
             files={"file": (song_file.name, f)},
+            headers={"X-API-Key": api_key},
             timeout=300,
         )
 
