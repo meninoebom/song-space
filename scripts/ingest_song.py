@@ -111,6 +111,11 @@ def ingest(song_path: str, api_url: str, library_dir: str):
     catalog.append({
         "slug": slug,
         "name": song_name,
+        # Display fields for user-facing song cards. `description` is a one-line
+        # vibe shown on the card; author it by hand after ingesting. `artist` /
+        # `artwork` are optional and left empty by default.
+        "description": data.get("description", ""),
+        "artist": data.get("artist", ""),
         "bpm": data["bpm"],
         "time_signature": data["time_signature"],
         "total_loops": data["total_loops"],

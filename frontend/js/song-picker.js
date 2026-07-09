@@ -35,8 +35,17 @@ export class SongPicker {
         h3.textContent = song.name;
         card.appendChild(h3);
 
+        // User-facing: a one-line vibe. Falls back to nothing if absent.
+        if (song.description) {
+          const desc = document.createElement('p');
+          desc.className = 'song-description';
+          desc.textContent = song.description;
+          card.appendChild(desc);
+        }
+
+        // Developer metadata (BPM, loop count, sections) \u2014 only visible with ?debug.
         const meta = document.createElement('div');
-        meta.className = 'song-meta';
+        meta.className = 'song-meta debug-only';
         const bpmSpan = document.createElement('span');
         bpmSpan.textContent = `${song.bpm} BPM`;
         const loopSpan = document.createElement('span');
@@ -45,7 +54,7 @@ export class SongPicker {
         card.appendChild(meta);
 
         const sections = document.createElement('div');
-        sections.className = 'song-sections';
+        sections.className = 'song-sections debug-only';
         sections.textContent = song.sections.join(' \u00B7 ');
         card.appendChild(sections);
 
