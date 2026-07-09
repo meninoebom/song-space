@@ -10,6 +10,7 @@ converts them to MP3, and writes metadata + catalog entry to the library dir.
 
 import argparse
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -125,8 +126,8 @@ def ingest(song_path: str, api_url: str, library_dir: str):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Ingest a song into the curated library")
     parser.add_argument("song", help="Path to song file (mp3, wav, etc.)")
-    parser.add_argument("--api-url", default="https://song-blender-api-production.up.railway.app",
-                        help="Song Space API URL")
+    parser.add_argument("--api-url", default=os.environ.get("SONGSPACE_API_URL", "http://localhost:8000"),
+                        help="Song Space API URL (default: $SONGSPACE_API_URL or http://localhost:8000)")
     parser.add_argument("--library-dir", default="./library",
                         help="Local library directory (default: ./library)")
     args = parser.parse_args()
