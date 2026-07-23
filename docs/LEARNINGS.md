@@ -87,6 +87,15 @@ The Replicate models (Demucs for stems, allin1 for song structure) are pre-train
 
 **The pending gate:** A live Quality Lab session (`/app/quality-lab.html`, webcam) where Brandon dances staccato movement vs. flowing movement, watching the `jerkiness` bar in the Temporal group. If it visibly separates the two, it graduates into `QUALITY_KEYS` (`frontend/js/constants.js`) and becomes eligible for score wiring in a future issue (#18 territory, not this one). If it doesn't separate them, remove the code per the 2026-03-07 cull precedent and record why here.
 
+**Update (2026-07-23):** the gate is now runnable as a recorded, repeatable experiment. In the Quality Lab, hit record with labels `flowing,staccato`, dance both styles (Space switches the label), download the session, then `node frontend/js/replay-cli.js <session.json>` prints per-label jerkiness stats and a separation verdict alongside the eyeball check. The session file is the durable evidence either way — graduation and cull both get an artifact.
+
+## Solved: AdaptiveRange epsilon collided with the jerkiness max pin (2026-07-23)
+
+**Found by:** the first synthetic run of the new session replay harness, before any real dance data.
+**Problem:** `AdaptiveRange.normalize` returned 0.5 whenever `range < 0.0001` (a degenerate-range guard), and the provisional jerkiness max pin was exactly `0.0001`. Internal decay nudges max just below the pin each frame, so the pinned range *always* looked degenerate: jerkiness read a constant 0.5 — even at perfect stillness — until real data expanded max past 1e-4. A live #48 validation session would have shown a motionless dancer with a half-full jerkiness bar.
+**Fix:** the epsilon is now a true divide-by-zero guard (`1e-9`, movement.js). No other quality was affected (every other max floor is ≥ 0.05's order).
+**Lesson:** a "safety epsilon" is a hidden constraint on every pin that approaches it. When pinning an AdaptiveRange near zero, check the epsilon; and synthetic replay catches this class of bug for free.
+
 **Deliberately not done in this pass:** `jerkiness` is NOT in `QUALITY_KEYS` and NOT in any `DEFAULT_SCORE` reading — both are gated on the session above.
 
 ## What's Working Well (2026-02-27)

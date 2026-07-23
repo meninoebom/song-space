@@ -5,8 +5,10 @@
  * (see QUALITY_KEYS in constants.js, docs/solutions/adapter-architecture.md).
  *
  * Takes raw MediaPipe Pose landmarks (33 points, 2D normalized coordinates)
- * and produces the standard qualities object — 10 named 0-1 floats that
- * the brain (ReadingsEngine + RalfRuntime) consumes.
+ * and produces the standard qualities object — the 11 QUALITY_KEYS floats
+ * (all 0-1) that the brain (ReadingsEngine + RalfRuntime) consumes, plus
+ * any lab-only candidate qualities not yet graduated into QUALITY_KEYS
+ * (currently: jerkiness, #48).
  *
  * A different input adapter (Kinect, body suit, LiDAR) would implement
  * the same output shape using different sensor data and computation.
@@ -17,7 +19,7 @@
  *   const qualities = detector.update(landmarks, timestamp);
  *   // qualities = { velocity, impulse, coherence, contraction,
  *   //               verticality, wristSpread, armsRaised, legBend,
- *   //               headTilt, jump } (all 0-1)
+ *   //               headTilt, jump, step } (all 0-1)
  */
 
 import { QUALITY_KEYS } from './constants.js';
@@ -73,7 +75,11 @@ class AdaptiveRange {
     this.min += (mid - this.min) * (1 - this.decayRate);
     this.max -= (this.max - mid) * (1 - this.decayRate);
     const range = this.max - this.min;
-    if (range < 0.0001) return 0.5;
+    // Pure divide-by-zero guard. Must stay far below any pinned max floor
+    // (jerkiness pins max at 1e-4): if this epsilon can reach a legitimate
+    // floor, a pinned-at-floor range short-circuits to 0.5 forever and the
+    // quality reads mid-scale even at perfect stillness.
+    if (range < 1e-9) return 0.5;
     return Math.max(0, Math.min(1, (value - this.min) / range));
   }
 }
