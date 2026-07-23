@@ -55,6 +55,9 @@ Vanilla JS app served by the API at `/app`. No build step.
 | `frontend/js/audio-engine.js` | Tone.js Transport-synced loop players, category volume + quantized mute/restore |
 | `frontend/js/arc.js` | Data-driven phase sequencer — phase-driven remixing with engagement tracking |
 | `frontend/js/skeleton.js` | Body-tracking skeleton drawing on canvas (uniform scaling) |
+| `frontend/js/session-recorder.js` | Records landmark frames (with segment labels) to a downloadable session JSON |
+| `frontend/js/session-replay.js` | Replays a session through the real pipeline headlessly; label stats + separation metrics |
+| `frontend/js/replay-cli.js` | Node CLI: replay a session file, print the tuning report + #48-style separation verdicts |
 | `frontend/js/debug.js` | Debug overlay — movement qualities and readings as text bars (debug-gated) |
 | `frontend/js/readings-meter.js` | DOM bars showing current reading values and active state (debug-gated) |
 | `frontend/js/phase-indicator.js` | Segmented progress bar showing arc phases |
@@ -94,7 +97,16 @@ These compose freely: stillness is both accumulating AND edge-triggered. Impleme
 
 ### AdaptiveRange Pinning
 
-Qualities with absolute bounds (velocity min=0, coherence min=0) need their AdaptiveRange pinned to prevent decay-driven collapse. Pin both before AND after normalize. The max floor must satisfy: `noise_floor / max_pin < gate_threshold - HYSTERESIS_BAND`. For velocity: `0.002 / 0.05 = 0.04 < 0.07`.
+Qualities with absolute bounds (velocity min=0, coherence min=0) need their AdaptiveRange pinned to prevent decay-driven collapse. Pin both before AND after normalize. The max floor must satisfy: `noise_floor / max_pin < gate_threshold - HYSTERESIS_BAND`. For velocity: `0.002 / 0.05 = 0.04 < 0.07`. Also: a max pin must sit far above AdaptiveRange's degenerate-range epsilon (now 1e-9, a pure divide-by-zero guard) — when the two collide, normalize() short-circuits to 0.5 forever and the quality reads mid-scale even at stillness (this bit jerkiness at its old 1e-4 epsilon; caught by the replay harness).
+
+### Session Record/Replay (the tuning harness)
+
+The perception layer is tuned from **recorded dance sessions**, not only live webcam time. Record in the Quality Lab (`/app/quality-lab.html`): the record button captures raw landmarks per frame with a segment label (Space cycles labels, e.g. flowing → staccato), then downloads a session JSON. Replay it two ways:
+
+- **Visually:** "load session…" in the Quality Lab replays it through the live panels (works with no camera).
+- **Headlessly:** `node frontend/js/replay-cli.js session.json` prints per-label quality stats, reading activations, fired intents, and separation verdicts (`--separate quality:labelA:labelB`). The #48 jerkiness gate defaults on when flowing/staccato labels are present.
+
+Replay is deterministic (injected timestamps; seeded intent draws), so one recorded session validates any future change to quality formulas, gates, or the runtime — offline, in CI, shareable between sessions. Synthetic sessions in `session-replay.test.js` give movement.js its baseline coverage; recorded real-dance fixtures are the intended long-term regression set. Session format follows gesture-studio's conventions (`tracking_system: mediapipe-pose-33-xy`) for Ralf transfer.
 
 ### Song Spaces (Library)
 

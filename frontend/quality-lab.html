@@ -66,6 +66,16 @@
 
     .status-msg { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; color: #666; text-align: center; }
 
+    /* Session record/replay bar */
+    .session-bar { display: flex; align-items: center; gap: 8px; padding-bottom: 8px; border-bottom: 1px solid #222; margin-bottom: 4px; }
+    .session-bar button { background: #222; color: #ccc; border: 1px solid #333; border-radius: 3px; font: inherit; font-size: 11px; padding: 4px 10px; cursor: pointer; }
+    .session-bar button:hover { background: #2a2a2a; }
+    .session-bar button.recording { background: #5a1f28; color: #ffb3bd; border-color: #ee5a6f; }
+    .session-bar input[type="text"] { background: #1a1a1a; color: #ccc; border: 1px solid #333; border-radius: 3px; font: inherit; font-size: 11px; padding: 4px 6px; width: 140px; }
+    .session-status { font-size: 10px; color: #666; overflow: hidden; white-space: nowrap; }
+    .label-overlay { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); font-size: 20px; letter-spacing: 3px; text-transform: uppercase; color: #fff; background: rgba(0,0,0,0.55); padding: 6px 18px; border-radius: 4px; pointer-events: none; }
+    .label-overlay.rec { color: #ffb3bd; }
+
     video { display: none; }
   </style>
 </head>
@@ -74,8 +84,16 @@
     <div class="video-side">
       <canvas id="lab-canvas"></canvas>
       <div class="status-msg" id="status">Starting webcam...</div>
+      <div class="label-overlay" id="label-overlay" hidden></div>
     </div>
     <div class="panel-side" id="panel">
+      <div class="session-bar">
+        <button id="rec-btn" title="Record landmark frames to a downloadable session file. Space cycles the segment label while recording.">&#9679; record</button>
+        <input type="text" id="rec-labels" value="flowing,staccato" title="Comma-separated segment labels. Space cycles to the next while recording.">
+        <button id="load-btn" title="Replay a recorded session file through the pipeline (works without a camera)">load session&hellip;</button>
+        <input type="file" id="load-file" accept=".json,application/json" hidden>
+        <span class="session-status" id="session-status"></span>
+      </div>
       <div class="legend">
         <div class="legend-item"><div class="legend-dot temporal"></div> temporal (over time)</div>
         <div class="legend-item"><div class="legend-dot spatial"></div> spatial (body shape)</div>
@@ -91,6 +109,7 @@
     import { RalfRuntime } from './js/runtime.js';
     import { CATEGORIES } from './js/constants.js';
     import { DEFAULT_SCORE } from './js/score.js';
+    import { SessionRecorder, downloadSession, validateSession } from './js/session-recorder.js';
     import * as webcam from './js/webcam.js';
 
     const canvas = document.getElementById('lab-canvas');
@@ -98,21 +117,42 @@
     const panel = document.getElementById('panel');
     const statusEl = document.getElementById('status');
     const video = document.getElementById('webcam-video');
+    const labelOverlay = document.getElementById('label-overlay');
+    const recBtn = document.getElementById('rec-btn');
+    const recLabelsInput = document.getElementById('rec-labels');
+    const loadBtn = document.getElementById('load-btn');
+    const loadFile = document.getElementById('load-file');
+    const sessionStatus = document.getElementById('session-status');
 
-    const detector = new MovementDetector();
-    const readingsEngine = new ReadingsEngine(DEFAULT_SCORE.readings.solo);
+    // Pipeline state is recreated per source (live vs replay) so a replay
+    // starts from clean AdaptiveRange / hysteresis / edge-trigger state
+    // instead of inheriting whatever the live session accumulated.
+    let detector, readingsEngine, runtime;
 
-    // Mock output adapter — records actions instead of playing audio
+    // 'live' drives the pipeline from the webcam; 'replay' from a loaded session.
+    let mode = 'live';
+    let replayState = null; // { session, startWall, idx, lastT }
+    const recorder = new SessionRecorder();
+
+    // Mock output adapter — records actions instead of playing audio.
+    // Must implement the FULL output-adapter interface from runtime.js
+    // (including setEffect and the quantized mute/restore variants), or
+    // runtime.update throws mid-frame and kills the panel loop.
     const mockEngine = {
       loaded: true,
       _lastAction: null,
       _actionFlash: 0,
+      _muted: new Set(),
+      _flash(msg) { this._lastAction = msg; this._actionFlash = 30; },
       setCategoryVolume() {},
-      muteCategory(cat, ramp) { this._lastAction = `mute ${cat}`; this._actionFlash = 30; },
-      restoreCategory(cat, ramp) { this._lastAction = `restore ${cat}`; this._actionFlash = 30; },
-      isTriggerMuted() { return false; },
-      triggerOneshot(cat, db) { this._lastAction = `oneshot ${cat}`; this._actionFlash = 30; },
-      sweepFilter(cat, from, to, dur) { this._lastAction = `sweep ${cat} ${from}→${to}`; this._actionFlash = 30; },
+      isTriggerMuted(cat) { return this._muted.has(cat); },
+      muteCategory(cat) { this._muted.add(cat); this._flash(`mute ${cat}`); },
+      muteCategoryQuantized(cat) { this._muted.add(cat); this._flash(`mute ${cat} (bar)`); },
+      restoreCategory(cat) { this._muted.delete(cat); this._flash(`restore ${cat}`); },
+      restoreCategoryQuantized(cat) { this._muted.delete(cat); this._flash(`restore ${cat} (bar)`); },
+      triggerOneshot(cat, db) { this._flash(`oneshot ${cat}`); },
+      sweepFilter(cat, from, to, dur) { this._flash(`sweep ${cat} ${from}→${to}`); },
+      setEffect(cat, effect, param, value) { /* continuous — too chatty to flash */ },
     };
 
     const runtimeScore = {
@@ -120,7 +160,14 @@
       intents: DEFAULT_SCORE.intents,
       mappings: DEFAULT_SCORE.mappings,
     };
-    const runtime = new RalfRuntime(runtimeScore, mockEngine);
+
+    function freshPipeline() {
+      detector = new MovementDetector();
+      readingsEngine = new ReadingsEngine(DEFAULT_SCORE.readings.solo);
+      mockEngine._muted.clear();
+      runtime = new RalfRuntime(runtimeScore, mockEngine);
+    }
+    freshPipeline();
 
     const bars = {};
     const readingBars = {};
@@ -340,14 +387,19 @@
       return parts.length > 0 ? parts.join(' ') : '<span style="color:#555">no gate</span>';
     }
 
-    // Draw mirrored video + skeleton on canvas
+    // Draw mirrored video (live) or black background (replay) + landmarks
     function drawFrame(landmarks) {
       canvas.width = video.videoWidth || 640;
       canvas.height = video.videoHeight || 480;
-      ctx.save();
-      ctx.scale(-1, 1);
-      ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
-      ctx.restore();
+      if (mode === 'live' && video.videoWidth) {
+        ctx.save();
+        ctx.scale(-1, 1);
+        ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
+        ctx.restore();
+      } else {
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
 
       if (landmarks && landmarks.length > 0) {
         for (const body of landmarks) {
@@ -363,14 +415,10 @@
       }
     }
 
-    // Detection loop
-    function loop() {
-      const results = webcam.detect();
-      const ts = performance.now() / 1000;
-
-      if (results && results.landmarks && results.landmarks.length > 0) {
-        statusEl.style.display = 'none';
-        const qualities = detector.update(results.landmarks[0], ts);
+    // Per-frame pipeline + panel update, shared by live and replay sources.
+    // bodies: array of bodies (each 33 landmarks); ts: seconds on the source's clock.
+    function processFrame(bodies, ts, dt) {
+      const qualities = detector.update(bodies[0], ts);
 
         for (const [key, bar] of Object.entries(bars)) {
           const v = qualities[key] ?? 0;
@@ -391,7 +439,6 @@
         }
 
         // Update intents via runtime (with mock engine)
-        const dt = 1 / 30;
         runtime.update(readings, CATEGORIES, dt);
 
         // Visualize intent states from runtime internals
@@ -446,21 +493,112 @@
           }
         }
 
-        drawFrame(results.landmarks);
-      } else {
-        drawFrame(null);
-      }
-
-      if (webcam.isRunning()) requestAnimationFrame(loop);
+        drawFrame(bodies);
     }
 
-    // Start
+    // --- Main loop: always running, pulls from webcam or a loaded session ---
+
+    function tick() {
+      if (mode === 'replay') {
+        stepReplay();
+      } else {
+        const results = webcam.isRunning() ? webcam.detect() : null;
+        const ts = performance.now() / 1000;
+        if (results && results.landmarks && results.landmarks.length > 0) {
+          statusEl.style.display = 'none';
+          recorder.addFrame(results.landmarks, ts);
+          if (recorder.recording) {
+            sessionStatus.textContent = `recording: ${recorder.frameCount} frames`;
+          }
+          processFrame(results.landmarks, ts, 1 / 30);
+        } else {
+          drawFrame(null);
+        }
+      }
+      requestAnimationFrame(tick);
+    }
+
+    // Advance the replay clock and process every frame that has come due.
+    function stepReplay() {
+      const { session } = replayState;
+      const elapsed = performance.now() / 1000 - replayState.startWall;
+      while (replayState.idx < session.frames.length && session.frames[replayState.idx].t <= elapsed) {
+        const frame = session.frames[replayState.idx++];
+        const dt = replayState.lastT === null ? 1 / 30 : Math.max(frame.t - replayState.lastT, 1e-6);
+        replayState.lastT = frame.t;
+        labelOverlay.textContent = frame.label ?? '';
+        labelOverlay.hidden = !frame.label;
+        processFrame(frame.bodies, frame.t, dt);
+        sessionStatus.textContent = `replay: ${replayState.idx}/${session.frames.length} (${frame.t.toFixed(1)}s)`;
+      }
+      if (replayState.idx >= session.frames.length) {
+        mode = 'live';
+        replayState = null;
+        labelOverlay.hidden = true;
+        sessionStatus.textContent = 'replay finished — back to live';
+        freshPipeline();
+      }
+    }
+
+    // --- Record / load controls ---
+
+    recBtn.addEventListener('click', () => {
+      if (mode === 'replay') return;
+      if (!recorder.recording) {
+        const labels = recLabelsInput.value.split(',').map(s => s.trim()).filter(Boolean);
+        recorder.start(labels.length ? labels : ['unlabeled']);
+        recBtn.textContent = '■ stop + save';
+        recBtn.classList.add('recording');
+        labelOverlay.textContent = recorder.currentLabel;
+        labelOverlay.classList.add('rec');
+        labelOverlay.hidden = false;
+        sessionStatus.textContent = 'recording: 0 frames';
+      } else {
+        const session = recorder.stop();
+        recBtn.textContent = '● record';
+        recBtn.classList.remove('recording');
+        labelOverlay.hidden = true;
+        labelOverlay.classList.remove('rec');
+        if (session.frame_count > 0) {
+          downloadSession(session);
+          sessionStatus.textContent = `saved ${session.frame_count} frames (${session.duration_sec.toFixed(1)}s)`;
+        } else {
+          sessionStatus.textContent = 'nothing recorded (no body tracked)';
+        }
+      }
+    });
+
+    // Space cycles the segment label while recording.
+    document.addEventListener('keydown', (e) => {
+      if (e.code !== 'Space' || !recorder.recording) return;
+      e.preventDefault();
+      labelOverlay.textContent = recorder.cycleLabel();
+    });
+
+    loadBtn.addEventListener('click', () => { if (mode !== 'replay') loadFile.click(); });
+    loadFile.addEventListener('change', async () => {
+      const file = loadFile.files[0];
+      loadFile.value = '';
+      if (!file || recorder.recording) return;
+      try {
+        const session = validateSession(JSON.parse(await file.text()));
+        freshPipeline();
+        statusEl.style.display = 'none';
+        mode = 'replay';
+        replayState = { session, startWall: performance.now() / 1000, idx: 0, lastT: null };
+      } catch (err) {
+        sessionStatus.textContent = `could not load: ${err.message}`;
+      }
+    });
+
+    // Start the loop immediately — replay must work while the camera
+    // permission prompt is still pending, and with no camera at all.
+    tick();
     try {
       await webcam.start();
       statusEl.textContent = 'Move around to see your qualities';
-      loop();
     } catch (err) {
-      statusEl.textContent = `Camera unavailable: ${err.message}`;
+      statusEl.textContent = `Camera unavailable: ${err.message} — you can still load a session`;
     }
   </script>
 </body>

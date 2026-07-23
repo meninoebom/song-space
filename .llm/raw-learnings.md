@@ -1,5 +1,39 @@
 # Raw Learnings
 
+## 2026-07-23 - Session record/replay harness (leverage pass)
+
+### The tuning loop was the bottleneck, not any single tuning decision
+**Problem:** All remaining open issues (#48 jerkiness validation, #18 real-user score
+tuning) and every LEARNINGS taste decision required a live webcam dance session —
+unrepeatable, unshareable, absent from CI. Meanwhile the whole perception chain
+(MovementDetector → ReadingsEngine → RalfRuntime) is pure JS with injected timestamps.
+**Solution:** Record raw landmarks + segment labels in the Quality Lab, replay
+deterministically (seeded intent draws) in node or in the lab. One session becomes a
+permanent fixture; formula/gate changes get validated offline against real dance data.
+**Code ref:** `frontend/js/session-recorder.js`, `session-replay.js`, `replay-cli.js`
+
+### Synthetic replay caught a real bug before any real data existed
+The AdaptiveRange degenerate-range epsilon (0.0001) equaled the jerkiness max pin, so
+jerkiness read a constant 0.5 (details in docs/LEARNINGS.md 2026-07-23 entry). Found on
+the first synthetic run. Framework lesson: when a normalizer has both a safety epsilon
+and pinned floors, the epsilon is an implicit lower bound on every legal floor.
+
+### Mock output adapters rot when the real interface grows
+The quality-lab mockEngine predated #53/#55 and never gained `setEffect` or the
+quantized mute/restore methods. Any continuous set_effect intent (which DEFAULT_SCORE
+now fires constantly via flowing_effect etc.) made runtime.update throw and silently
+killed the lab's rAF loop. Replay exposed it deterministically on frame 1. Fixed by
+implementing the full output-adapter interface from the runtime.js header. Lesson: the
+runtime.js header comment is the adapter contract; grep for every implementor
+(audio-engine, lab mock, test mocks, replay mock) when it grows a method.
+
+### Separation metric choice is a taste decision, not a math decision
+Frame-level balanced accuracy under-scores spiky qualities (staccato jerkiness dips
+during holds → 0.82 on synthetic data vs the 0.85 default bar in replay-cli.js
+GRADUATION). The reading layer smooths (lerp 0.08) before gates see values, so a
+smoothed-trace metric may be the fairer gate. Left for Brandon to rule on in
+`judgeGraduation` (replay-cli.js).
+
 ## 2026-07-08 - Issue #53: Runtime contract cleanup
 
 ### Solo must un-mute its own members, not just mute others
